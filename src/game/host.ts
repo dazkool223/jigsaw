@@ -3,10 +3,14 @@
  * (see ../types.ts), and is the only thing that ever decides a grab, a
  * merge, or Completion.
  *
- * Message shapes are defined LOCALLY here (exported) rather than imported
- * from a shared protocol module, per instructions — another agent owns
- * src/net/protocol.ts and these will need reconciling with it. See the
- * final report for the exact shapes.
+ * Wire messages are the canonical shapes from `../net/protocol` — see that
+ * module for the full message list and its "SEQUENCING" note, which this
+ * class implements: `nextSeq()` is called only for genuine control-channel
+ * broadcasts (GRAB_GRANTED, SNAP, PLAYER_LIST, COMPLETE, the periodic-resync
+ * FULL_STATE); unicast replies (WELCOME, ROOM_FULL, GRAB_DENIED, the
+ * on-demand FULL_STATE reply) either omit `seq` or stamp the CURRENT counter
+ * without incrementing it, so answering one Guest never manufactures a
+ * phantom gap for everyone else.
  */
 
 import type {
@@ -29,87 +33,15 @@ import {
   isComplete,
   moveGroup,
   releaseGroup,
-  serialize,
-  type SerializedState,
 } from "./state";
 import { resolveDrop } from "./snap";
 import type { GameState } from "../types";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Wire messages (LOCAL to game/host.ts — reconcile with net/protocol.ts)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Guest -> Host. */
-export type ClientMessage =
-  | { readonly type: "join"; readonly name: string; readonly color: string }
-  | { readonly type: "grabRequest"; readonly groupId: GroupId }
-  | { readonly type: "move"; readonly groupId: GroupId; readonly offset: Point }
-  | { readonly type: "drop"; readonly groupId: GroupId; readonly offset: Point }
-  | { readonly type: "cursor"; readonly point: Point }
-  | { readonly type: "stateRequest" };
-
-/**
- * Host -> Guest(s).
- *
- * `seq` is a monotonic counter, incremented once per BROADCAST that's part
- * of the ordered control stream: playerJoined, playerLeft, grabGranted,
- * snap, complete. A Guest gap-checks exactly these (see client.ts's
- * checkSeqGap) and pulls a resync on a gap.
- *
- * "welcome" and "state" also carry `seq`, but only to (re-)establish a
- * Guest's baseline — the Host stamps them with the CURRENT counter value
- * without incrementing it (a `state` broadcast from the resync timer is the
- * exception: it's a genuine broadcast and does increment). Receiving either
- * simply adopts `seq` as the new baseline rather than being gap-checked
- * against the old one, so answering one Guest's on-demand stateRequest can't
- * manufacture a phantom gap for everyone else.
- *
- * "joinDenied", "grabDenied", "move" and "cursor" carry no seq at all —
- * joinDenied/grabDenied are terminal one-off replies outside the ordered
- * stream, and move/cursor travel on the unreliable `stream` channel where
- * drops are normal, not gaps.
- */
-export type HostMessage =
-  | {
-      readonly type: "welcome";
-      readonly seq: number;
-      readonly playerId: PlayerId;
-      readonly state: SerializedState;
-      readonly players: readonly Player[];
-    }
-  | { readonly type: "joinDenied"; readonly reason: "room-full" }
-  | {
-      readonly type: "grabGranted";
-      readonly seq: number;
-      readonly groupId: GroupId;
-      readonly playerId: PlayerId;
-      readonly z: number;
-    }
-  | {
-      readonly type: "grabDenied";
-      readonly groupId: GroupId;
-      readonly playerId: PlayerId;
-      readonly reason: "held" | "not-found";
-    }
-  | {
-      readonly type: "move";
-      readonly groupId: GroupId;
-      readonly offset: Point;
-      readonly playerId: PlayerId;
-    }
-  | {
-      readonly type: "snap";
-      readonly seq: number;
-      readonly groupId: GroupId;
-      readonly merged: readonly GroupId[];
-      readonly offset: Point;
-      readonly z: number;
-    }
-  | { readonly type: "state"; readonly seq: number; readonly state: SerializedState }
-  | { readonly type: "playerJoined"; readonly seq: number; readonly player: Player }
-  | { readonly type: "playerLeft"; readonly seq: number; readonly playerId: PlayerId }
-  | { readonly type: "complete"; readonly seq: number }
-  | { readonly type: "cursor"; readonly playerId: PlayerId; readonly point: Point };
+import {
+  dropStale,
+  parseMessage,
+  type ProtocolMessage,
+  type StreamMessage,
+} from "../net/protocol";
 
 export type HostOptions = {
   readonly transport: Transport;
@@ -120,6 +52,14 @@ export type HostOptions = {
   readonly hostPlayer: Player;
   /** Overrides RESYNC_INTERVAL_MS; mainly for tests. */
   readonly resyncIntervalMs?: number;
+  /**
+   * The Host Epoch to stamp on WELCOME (protocol.ts requires it). Host Epoch
+   * arbitration itself (ADR-0001) lives in the session/Supabase layer, which
+   * is out of scope for game/host.ts — this is just a pass-through so a
+   * caller that HAS claimed an epoch can thread it through. Defaults to 0
+   * for callers (e.g. the M1 loopback path) that don't have one yet.
+   */
+  readonly hostEpoch?: number;
 };
 
 export class Host {
@@ -127,7 +67,10 @@ export class Host {
   private readonly puzzle: Puzzle;
   private state: GameState;
   private readonly players = new Map<PlayerId, Player>();
+  private readonly hostEpoch: number;
   private seq = 0;
+  /** Per-sender staleness tracking for the unreliable `stream` channel (MOVE, CURSOR). */
+  private readonly lastStreamSeq = new Map<PlayerId, number>();
   private resyncTimer: ReturnType<typeof setInterval> | undefined;
   private readonly unsubscribers: Array<() => void> = [];
 
@@ -136,9 +79,10 @@ export class Host {
     this.puzzle = opts.puzzle;
     this.state = createInitialState(opts.puzzle, opts.scatterOffsets);
     this.players.set(opts.hostPlayerId, opts.hostPlayer);
+    this.hostEpoch = opts.hostEpoch ?? 0;
 
     this.unsubscribers.push(
-      this.transport.onMessage((from, _channel, msg) => this.handleMessage(from, msg as ClientMessage)),
+      this.transport.onMessage((from, _channel, msg) => this.handleMessage(from, msg)),
       this.transport.onPeerLeave((id) => this.handlePeerLeave(id))
     );
 
@@ -162,51 +106,68 @@ export class Host {
 
   // ── Inbound ──
 
-  private handleMessage(from: PlayerId, msg: ClientMessage): void {
+  private handleMessage(from: PlayerId, raw: unknown): void {
+    const msg = parseMessage(raw);
+    if (!msg) return; // malformed / not a Guest->Host shape we recognise — drop
+
     switch (msg.type) {
-      case "join":
-        this.handleJoin(from, msg);
+      case "JOIN":
+        this.handleJoin(from, msg.name, msg.color);
         break;
-      case "grabRequest":
+      case "GRAB":
         this.handleGrabRequest(from, msg.groupId);
         break;
-      case "move":
-        this.handleMove(from, msg.groupId, msg.offset);
+      case "MOVE":
+        if (this.acceptStream(from, msg)) this.handleMove(from, msg);
         break;
-      case "drop":
+      case "DROP":
         this.handleDrop(from, msg.groupId, msg.offset);
         break;
-      case "cursor":
-        this.transport.send("stream", BROADCAST, {
-          type: "cursor",
-          playerId: from,
-          point: msg.point,
-        } satisfies HostMessage);
+      case "CURSOR":
+        if (this.acceptStream(from, msg)) {
+          // Best-effort relay, unmodified (including the original seq) —
+          // other Guests gap-check it themselves per-sender.
+          this.transport.send("stream", BROADCAST, msg);
+        }
         break;
-      case "stateRequest":
+      case "STATE_REQUEST":
         this.sendFullState(from);
         break;
+      default:
+        break; // Host->Guest-only shapes arriving here are ignored, not an error
     }
   }
 
-  private handleJoin(from: PlayerId, msg: { readonly name: string; readonly color: string }): void {
+  /** Staleness gate for the unreliable `stream` channel — see protocol.ts's SEQUENCING note. */
+  private acceptStream(from: PlayerId, msg: StreamMessage): boolean {
+    const last = this.lastStreamSeq.get(from) ?? -1;
+    if (dropStale(last, msg)) return false;
+    this.lastStreamSeq.set(from, msg.seq);
+    return true;
+  }
+
+  private handleJoin(from: PlayerId, name: string, color: string): void {
     const alreadyKnown = this.players.has(from);
     if (!alreadyKnown && this.players.size >= MAX_PLAYERS) {
-      this.sendControl(from, { type: "joinDenied", reason: "room-full" });
+      this.sendControl(from, { type: "ROOM_FULL" });
       return;
     }
 
-    const player: Player = { id: from, name: msg.name, color: msg.color };
+    const player: Player = { id: from, name, color };
     this.players.set(from, player);
 
+    // Unicast reply: stamps the CURRENT seq (baseline), does not increment.
     this.sendControl(from, {
-      type: "welcome",
-      seq: this.seq,
-      playerId: from,
-      state: serialize(this.state),
+      type: "WELCOME",
+      you: from,
       players: this.getPlayers(),
+      state: this.state,
+      hostEpoch: this.hostEpoch,
+      seq: this.seq,
     });
-    this.broadcastControl({ type: "playerJoined", seq: this.nextSeq(), player });
+    // Genuine broadcast: increments. Reaches the new Guest too (redundant
+    // with WELCOME's `players`, but harmless — same idempotent overwrite).
+    this.broadcastControl({ type: "PLAYER_LIST", players: this.getPlayers(), seq: this.nextSeq() });
   }
 
   private handleGrabRequest(from: PlayerId, groupId: GroupId): void {
@@ -214,7 +175,7 @@ export class Host {
     this.state = result.state;
     if (!result.granted) {
       this.sendControl(from, {
-        type: "grabDenied",
+        type: "GRAB_DENIED",
         groupId,
         playerId: from,
         reason: result.reason === "not-found" ? "not-found" : "held",
@@ -225,19 +186,12 @@ export class Host {
     // spelled out in the brief) but matches the obvious drag UX; see report.
     this.state = bringToFront(this.state, groupId);
     const z = this.state.groups[groupId]?.z ?? 0;
-    this.broadcastControl({ type: "grabGranted", seq: this.nextSeq(), groupId, playerId: from, z });
+    this.broadcastControl({ type: "GRAB_GRANTED", seq: this.nextSeq(), groupId, playerId: from, z });
   }
 
-  private handleMove(from: PlayerId, groupId: GroupId, offset: Point): void {
-    if (this.state.heldBy[groupId] !== from) return; // stale/unauthorized — ignore
-    this.state = moveGroup(this.state, groupId, offset);
-    // Mid-drag positions are best-effort, high-frequency: relay on `stream`.
-    this.transport.send("stream", BROADCAST, {
-      type: "move",
-      groupId,
-      offset,
-      playerId: from,
-    } satisfies HostMessage);
+  private handleMove(from: PlayerId, msg: { readonly groupId: GroupId; readonly offset: Point }): void {
+    if (this.state.heldBy[msg.groupId] !== from) return; // stale/unauthorized — ignore
+    this.state = moveGroup(this.state, msg.groupId, msg.offset);
   }
 
   private handleDrop(from: PlayerId, groupId: GroupId, offset: Point): void {
@@ -246,8 +200,6 @@ export class Host {
     this.state = releaseGroup(this.state, groupId, from);
 
     const pieceSample = this.state.groups[groupId]?.pieceIds[0];
-    // `snapped` isn't surfaced separately on the wire — a Lattice snap that
-    // didn't also merge still shows up in the "snap" message's offset below.
     const { state, merged } = resolveDrop(this.state, this.puzzle, groupId);
     this.state = state;
 
@@ -256,17 +208,17 @@ export class Host {
 
     if (finalId !== undefined && finalGroup !== undefined) {
       this.broadcastControl({
-        type: "snap",
+        type: "SNAP",
         seq: this.nextSeq(),
-        groupId: finalId,
-        merged,
-        offset: finalGroup.offset,
-        z: finalGroup.z,
+        groups: [finalGroup],
+        removedGroupIds: merged,
+        nextZ: this.state.nextZ,
+        nextGroupId: this.state.nextGroupId,
       });
     }
 
     if (isComplete(this.state)) {
-      this.broadcastControl({ type: "complete", seq: this.nextSeq() });
+      this.broadcastControl({ type: "COMPLETE", seq: this.nextSeq() });
     }
   }
 
@@ -277,19 +229,19 @@ export class Host {
       }
     }
     if (this.players.delete(id)) {
-      this.broadcastControl({ type: "playerLeft", seq: this.nextSeq(), playerId: id });
+      this.broadcastControl({ type: "PLAYER_LIST", players: this.getPlayers(), seq: this.nextSeq() });
     }
   }
 
   // ── Resync ──
 
   private broadcastFullState(): void {
-    this.broadcastControl({ type: "state", seq: this.nextSeq(), state: serialize(this.state) });
+    this.broadcastControl({ type: "FULL_STATE", state: this.state, seq: this.nextSeq() });
   }
 
-  /** On-demand reply to a Guest's stateRequest — re-baselines, doesn't consume a seq slot. */
+  /** On-demand reply to a Guest's STATE_REQUEST — re-baselines, doesn't consume a seq slot. */
   private sendFullState(to: PlayerId): void {
-    this.sendControl(to, { type: "state", seq: this.seq, state: serialize(this.state) });
+    this.sendControl(to, { type: "FULL_STATE", state: this.state, seq: this.seq });
   }
 
   // ── Outbound plumbing ──
@@ -299,11 +251,11 @@ export class Host {
     return this.seq;
   }
 
-  private sendControl(to: Recipient, msg: HostMessage): void {
+  private sendControl(to: Recipient, msg: ProtocolMessage): void {
     this.transport.send("control", to, msg);
   }
 
-  private broadcastControl(msg: HostMessage): void {
+  private broadcastControl(msg: ProtocolMessage): void {
     this.transport.send("control", BROADCAST, msg);
   }
 }

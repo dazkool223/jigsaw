@@ -34,7 +34,7 @@ describe("buildPuzzle — the interlock invariant", () => {
         const reversedUpperBottom = {
           from: upperBottom.to,
           to: upperBottom.from,
-          segments: [...upperBottom.segments].reverse().map((seg, i, arr) => {
+          segments: [...upperBottom.segments].reverse().map((_seg, i, arr) => {
             const origIndex = arr.length - 1 - i;
             const origSeg = upperBottom.segments[origIndex];
             const prevOrigTo =

@@ -16,6 +16,28 @@
  * throws, and returns `null` for anything that isn't a well-formed message.
  * Per-type guards (`isJoinMessage`, etc.) are exported too, for callers that
  * already know which shape they expect (e.g. after switching on `.type`).
+ *
+ * SEQUENCING: `seq` appears on two, deliberately different, kinds of
+ * message:
+ *   - Genuine `control`-channel BROADCASTS (GRAB_GRANTED, SNAP, PLAYER_LIST,
+ *     COMPLETE, and the periodic-resync use of FULL_STATE) increment a
+ *     single Host-side counter. A receiver gap-checks these against the
+ *     last `seq` it accepted and pulls a resync (STATE_REQUEST) on a gap.
+ *   - Unicast replies that also happen to carry `seq` (WELCOME, and the
+ *     on-demand-reply use of FULL_STATE) use it only to (re-)establish the
+ *     ONE Guest's baseline — the Host stamps the CURRENT counter value
+ *     without incrementing it, and the receiver adopts it rather than
+ *     gap-checking it. Otherwise, answering one Guest's on-demand
+ *     STATE_REQUEST would manufacture a phantom sequence gap for everyone
+ *     else, since they didn't see that unicast reply go by.
+ *   - GRAB_DENIED and ROOM_FULL carry no `seq` at all: they're terminal,
+ *     unicast, one-off replies outside the ordered stream.
+ *   - `stream`-channel messages (MOVE, CURSOR) carry `seq` for an unrelated
+ *     reason: not gap-detection but staleness-dropping (`dropStale`), since
+ *     that channel is unreliable/unordered and drops there are normal, not
+ *     bugs. Each sender keeps one counter for everything it sends on
+ *     `stream`; each receiver keeps one `lastSeq` per *sender* it hears
+ *     from.
  */
 
 import type {
@@ -43,6 +65,11 @@ export type JoinMessage = {
 /**
  * Host -> Guest, reply to JOIN. Carries full authoritative state so the Guest
  * never needs a separate round-trip to get in sync.
+ *
+ * `seq` establishes the Guest's baseline for the ordered control stream (see
+ * the module-level "Sequencing" note below) — it is NOT gap-checked, only
+ * adopted, since a unicast reply to one joining Guest must never look like a
+ * dropped broadcast to anyone else.
  */
 export type WelcomeMessage = {
   readonly type: "WELCOME";
@@ -51,12 +78,21 @@ export type WelcomeMessage = {
   readonly players: readonly Player[];
   readonly state: GameState;
   readonly hostEpoch: number;
+  readonly seq: number;
 };
 
-/** Host -> all Guests. Periodic resync (RESYNC_INTERVAL_MS) or reply to STATE_REQUEST. */
+/**
+ * Host -> Guest(s). Either a periodic broadcast resync (RESYNC_INTERVAL_MS —
+ * a genuine broadcast, gap-checked like any other) or a unicast reply to one
+ * Guest's STATE_REQUEST (re-baselines that Guest only, not gap-checked — see
+ * the module-level "Sequencing" note). Same shape either way; which one a
+ * given message is depends on whether it arrived via broadcast or unicast,
+ * not on anything in the payload.
+ */
 export type FullStateMessage = {
   readonly type: "FULL_STATE";
   readonly state: GameState;
+  readonly seq: number;
 };
 
 /** Guest -> Host. Sent when a Guest notices a seq gap on `stream` and wants to resync early. */
@@ -72,18 +108,34 @@ export type GrabMessage = {
   readonly playerId: PlayerId;
 };
 
-/** Host -> all. The first requester wins; broadcast so every client greys out the Group. */
+/**
+ * Host -> all. The first requester wins; broadcast (not just to the winner)
+ * so every client greys out the Group, and gap-checked like any other
+ * control broadcast (see the module-level "Sequencing" note). `z` is the
+ * Group's new draw order after being brought to front — grabbing always
+ * raises a Group, and the winner is told the resulting value directly
+ * instead of recomputing bringToFront's counter locally.
+ */
 export type GrabGrantedMessage = {
   readonly type: "GRAB_GRANTED";
   readonly groupId: GroupId;
   readonly playerId: PlayerId;
+  readonly z: number;
+  readonly seq: number;
 };
 
-/** Host -> the losing Guest only. Tells it to snap the Group back locally. */
+/**
+ * Host -> the losing Guest only. Tells it to snap the Group back locally.
+ * Terminal, one-off, outside the ordered control stream — no `seq` (see the
+ * module-level "Sequencing" note). `reason` distinguishes a race loss
+ * ("held": someone else already had it) from a stale request against a
+ * Group that no longer exists ("not-found", e.g. it merged away).
+ */
 export type GrabDeniedMessage = {
   readonly type: "GRAB_DENIED";
   readonly groupId: GroupId;
   readonly playerId: PlayerId;
+  readonly reason: "held" | "not-found";
 };
 
 /** Guest -> Host, on `stream`. Optimistic mid-drag position while holding a Group. */
@@ -117,6 +169,7 @@ export type SnapMessage = {
   readonly removedGroupIds: readonly GroupId[];
   readonly nextZ: number;
   readonly nextGroupId: GroupId;
+  readonly seq: number;
 };
 
 /** Any player -> all, on `stream`. Live cursor position. */
@@ -127,15 +180,22 @@ export type CursorMessage = {
   readonly point: Point;
 };
 
-/** Host -> all. Roster snapshot, sent on join/leave/rename. */
+/**
+ * Host -> all. Roster snapshot, sent on join/leave/rename. Deliberately the
+ * bulk roster rather than separate PLAYER_JOINED/PLAYER_LEFT events: the
+ * roster is capped at MAX_PLAYERS (8), so resending it whole is cheap, and
+ * one shape covers join, leave AND rename without a third message type.
+ */
 export type PlayerListMessage = {
   readonly type: "PLAYER_LIST";
   readonly players: readonly Player[];
+  readonly seq: number;
 };
 
 /** Host -> all. Sent once, when the Group count drops to 1. */
 export type CompleteMessage = {
   readonly type: "COMPLETE";
+  readonly seq: number;
 };
 
 /**
@@ -297,12 +357,18 @@ export function isWelcomeMessage(m: unknown): m is WelcomeMessage {
     isPlayerId(m.you) &&
     isPlayerArray(m.players) &&
     isGameState(m.state) &&
-    isFiniteNumber(m.hostEpoch)
+    isFiniteNumber(m.hostEpoch) &&
+    isFiniteNumber(m.seq)
   );
 }
 
 export function isFullStateMessage(m: unknown): m is FullStateMessage {
-  return isRecord(m) && m.type === "FULL_STATE" && isGameState(m.state);
+  return (
+    isRecord(m) &&
+    m.type === "FULL_STATE" &&
+    isGameState(m.state) &&
+    isFiniteNumber(m.seq)
+  );
 }
 
 export function isStateRequestMessage(m: unknown): m is StateRequestMessage {
@@ -323,8 +389,14 @@ export function isGrabGrantedMessage(m: unknown): m is GrabGrantedMessage {
     isRecord(m) &&
     m.type === "GRAB_GRANTED" &&
     isId(m.groupId) &&
-    isPlayerId(m.playerId)
+    isPlayerId(m.playerId) &&
+    isFiniteNumber(m.z) &&
+    isFiniteNumber(m.seq)
   );
+}
+
+function isGrabDeniedReason(v: unknown): v is "held" | "not-found" {
+  return v === "held" || v === "not-found";
 }
 
 export function isGrabDeniedMessage(m: unknown): m is GrabDeniedMessage {
@@ -332,7 +404,8 @@ export function isGrabDeniedMessage(m: unknown): m is GrabDeniedMessage {
     isRecord(m) &&
     m.type === "GRAB_DENIED" &&
     isId(m.groupId) &&
-    isPlayerId(m.playerId)
+    isPlayerId(m.playerId) &&
+    isGrabDeniedReason(m.reason)
   );
 }
 
@@ -364,7 +437,8 @@ export function isSnapMessage(m: unknown): m is SnapMessage {
     isGroupArray(m.groups) &&
     isGroupIdArray(m.removedGroupIds) &&
     isFiniteNumber(m.nextZ) &&
-    isId(m.nextGroupId)
+    isId(m.nextGroupId) &&
+    isFiniteNumber(m.seq)
   );
 }
 
@@ -379,11 +453,16 @@ export function isCursorMessage(m: unknown): m is CursorMessage {
 }
 
 export function isPlayerListMessage(m: unknown): m is PlayerListMessage {
-  return isRecord(m) && m.type === "PLAYER_LIST" && isPlayerArray(m.players);
+  return (
+    isRecord(m) &&
+    m.type === "PLAYER_LIST" &&
+    isPlayerArray(m.players) &&
+    isFiniteNumber(m.seq)
+  );
 }
 
 export function isCompleteMessage(m: unknown): m is CompleteMessage {
-  return isRecord(m) && m.type === "COMPLETE";
+  return isRecord(m) && m.type === "COMPLETE" && isFiniteNumber(m.seq);
 }
 
 export function isRoomFullMessage(m: unknown): m is RoomFullMessage {

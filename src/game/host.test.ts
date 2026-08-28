@@ -68,7 +68,7 @@ describe("Host over loopback", () => {
     });
 
     const guestTransport = hub.connectGuest("guest-1");
-    const client = new Client({ transport: guestTransport, name: "Guest", color: "#222222" });
+    const client = new Client({ transport: guestTransport, playerId: "guest-1", name: "Guest", color: "#222222" });
 
     await waitUntil(() => client.isReady());
     expect(client.getPlayerId()).toBe("guest-1");
@@ -131,8 +131,8 @@ describe("Host over loopback", () => {
       resyncIntervalMs: 60_000,
     });
 
-    const alice = new Client({ transport: hub.connectGuest("alice"), name: "Alice", color: "#f00" });
-    const bob = new Client({ transport: hub.connectGuest("bob"), name: "Bob", color: "#0f0" });
+    const alice = new Client({ transport: hub.connectGuest("alice"), playerId: "alice", name: "Alice", color: "#f00" });
+    const bob = new Client({ transport: hub.connectGuest("bob"), playerId: "bob", name: "Bob", color: "#0f0" });
     await waitUntil(() => alice.isReady() && bob.isReady());
 
     alice.grab(0);
@@ -166,14 +166,16 @@ describe("MAX_PLAYERS enforcement", () => {
     // Host already occupies one of MAX_PLAYERS slots.
     const clients: Client[] = [];
     for (let i = 0; i < MAX_PLAYERS - 1; i++) {
-      const transport = hub.connectGuest(`guest-${i}`);
-      clients.push(new Client({ transport, name: `Guest ${i}`, color: "#000000" }));
+      const id = `guest-${i}`;
+      const transport = hub.connectGuest(id);
+      clients.push(new Client({ transport, playerId: id, name: `Guest ${i}`, color: "#000000" }));
     }
     await waitUntil(() => clients.every((c) => c.isReady()));
     expect(host.getPlayers()).toHaveLength(MAX_PLAYERS);
 
     const overflow = new Client({
       transport: hub.connectGuest("guest-overflow"),
+      playerId: "guest-overflow",
       name: "Overflow",
       color: "#ffffff",
     });

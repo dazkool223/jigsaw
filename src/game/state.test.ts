@@ -149,7 +149,7 @@ describe("mergeGroups", () => {
     state = { ...state, groups: { ...state.groups, 1: { ...state.groups[1], z: 100 } } };
 
     const merged = mergeGroups(state, 0, 1);
-    expect(merged.groups[0].pieceIds.sort()).toEqual([0, 1]);
+    expect(merged.groups[0].pieceIds.slice().sort()).toEqual([0, 1]);
     expect(merged.groups[0].offset).toEqual({ x: 5, y: 5 });
     expect(merged.groups[0].z).toBe(100);
     expect(merged.groups[1]).toBeUndefined();

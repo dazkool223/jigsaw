@@ -114,7 +114,7 @@ describe("findMerges — held Groups are never merge targets", () => {
     const releasedState = { ...firstDrop.state, heldBy: {} };
     const secondDrop = resolveDrop(releasedState, puzzle, 4);
     expect(secondDrop.merged).toEqual([1]);
-    expect(secondDrop.state.groups[4].pieceIds.sort()).toEqual([1, 4]);
+    expect(secondDrop.state.groups[4].pieceIds.slice().sort()).toEqual([1, 4]);
     expect(secondDrop.state.groups[1]).toBeUndefined();
   });
 });
@@ -162,7 +162,7 @@ describe("resolveDrop — merge direction: smaller absorbed into larger", () => 
     expect(result.merged).toEqual([3]);
     expect(result.snapped).toBe(false); // {45,45} itself is far from (0,0)
     expect(result.state.groups[0]).toBeDefined();
-    expect(result.state.groups[0].pieceIds.sort()).toEqual([0, 1, 3]);
+    expect(result.state.groups[0].pieceIds.slice().sort()).toEqual([0, 1, 3]);
     expect(result.state.groups[0].offset).toEqual({ x: 50, y: 50 }); // unchanged — larger keeps its offset
     expect(result.state.groups[3]).toBeUndefined();
   });
@@ -188,7 +188,7 @@ describe("resolveDrop — chain merge", () => {
 
     expect(result.merged.sort()).toEqual([1, 2]);
     expect(result.state.groups[4]).toBeDefined();
-    expect(result.state.groups[4].pieceIds.sort()).toEqual([1, 2, 4]);
+    expect(result.state.groups[4].pieceIds.slice().sort()).toEqual([1, 2, 4]);
     expect(result.state.groups[1]).toBeUndefined();
     expect(result.state.groups[2]).toBeUndefined();
   });
