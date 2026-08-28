@@ -7,7 +7,17 @@ A browser-first co-op multiplayer jigsaw puzzle. One player's browser is authori
 ### Puzzle
 
 **Piece**:
-One jigsaw tile, fully determined by the puzzle definition `(image, seed, rows, cols)`. Always belongs to exactly one Group.
+One jigsaw tile, fully determined by the puzzle definition `(image, seed, rows, cols)`. Its outline is assembled from four Edges, not owned by it. Always belongs to exactly one Group.
+
+**Edge**:
+One cut line between two adjacent Pieces (or the straight outer boundary of a border Piece). Shared: each interior Edge is generated once and referenced by both neighbouring Pieces, one of them traversing it reversed. Edges — not Pieces — are what the seeded PRNG generates.
+
+**Tab / Blank**:
+The two sides of an interior Edge's interlocking bulge: the Tab protrudes from one Piece into the neighbouring Blank. A Tab has a pinched neck and a wider bulb, which is what makes Pieces interlock rather than abut.
+_Avoid_: knob, hole, bump
+
+**Cell**:
+A Piece's nominal slot in the grid. Cell corners are jittered so cut lines look hand-cut, but a Cell's origin is still the Piece's solved position — jitter never moves the Lattice.
 
 **Group**:
 A rigid set of one or more correctly-joined Pieces that moves as one unit. Every Piece is in a Group; a lone Piece is a Group of one.
