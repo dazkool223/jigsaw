@@ -1,2 +1,5 @@
+# esbuild ships a platform binary and needs its postinstall to run, otherwise
+# vitest and the vite build fail. pnpm blocks build scripts by default, so it
+# is approved explicitly here.
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true

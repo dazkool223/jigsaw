@@ -152,6 +152,15 @@ export type Recipient = PlayerId | typeof BROADCAST;
  * M3 swap in WebRTC without rewriting game logic. Implementations: LoopbackTransport
  * (game/loopback.ts) and the WebRTC pair in net/.
  */
+/**
+ * Connection state a Transport can report. `failed` and `roomFull` carry a
+ * message written for a human — the plan requires the 15s connect timeout and
+ * the player cap to surface as clear UI, not a silent hang.
+ */
+export type TransportStatus =
+  | { readonly state: "new" | "connecting" | "connected" | "closed" }
+  | { readonly state: "failed" | "roomFull"; readonly message: string };
+
 export interface Transport {
   send(channel: Channel, to: Recipient, msg: unknown): void;
   /** Returns an unsubscribe function. */
@@ -159,4 +168,12 @@ export interface Transport {
   onPeerJoin(handler: (id: PlayerId) => void): () => void;
   onPeerLeave(handler: (id: PlayerId) => void): () => void;
   close(): void;
+
+  /**
+   * Optional because the in-process loopback has no connection to report — it
+   * is always connected. Real WebRTC transports MUST implement both, so the UI
+   * can show "couldn't connect" or "room is full" instead of hanging.
+   */
+  onStatus?(handler: (status: TransportStatus) => void): () => void;
+  getStatus?(): TransportStatus;
 }
