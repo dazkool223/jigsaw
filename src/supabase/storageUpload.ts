@@ -152,6 +152,17 @@ export function imagePathForRoom(code: string): string {
   return `rooms/${code}/image`;
 }
 
+/**
+ * The public CDN URL for a Room's image. `BUCKET` is intentionally not
+ * exported — this is the one place that needs to know its name, so every
+ * caller goes through here instead of each hand-rolling `/storage/v1/...`
+ * (there is no anon SELECT policy on this bucket, per schema.sql, so this
+ * public-object URL is the only way to read an image back; see ADR-0001).
+ */
+export function getPublicImageUrl(code: string): string {
+  return supabase.storage.from(BUCKET).getPublicUrl(imagePathForRoom(code)).data.publicUrl;
+}
+
 /** The full pipeline: validate, decode, downscale, encode, upload. */
 export async function normaliseAndUploadImage(file: File, code: string): Promise<UploadResult> {
   const bitmap = await decodeUpload(file);

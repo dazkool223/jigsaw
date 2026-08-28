@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Piece, Player, Puzzle } from "../types";
+import type { GameState, Piece, Player, Puzzle } from "../types";
 import { MAX_PLAYERS } from "../config";
 import { Host } from "./host";
 import { Client } from "./client";
@@ -146,6 +146,187 @@ describe("Host over loopback", () => {
     host.close();
     alice.close();
     bob.close();
+  });
+});
+
+describe("Live drag is visible to bystanders, not just on drop", () => {
+  it("relays one Guest's mid-drag MOVE to a second Guest (for lerped remote motion, per the plan)", async () => {
+    const puzzle = makePuzzle();
+    const hub = new LoopbackHub();
+    const host = new Host({
+      transport: hub.connectHost("host-player"),
+      puzzle,
+      scatterOffsets: {},
+      hostPlayerId: "host-player",
+      hostPlayer: makeHostPlayer(),
+      resyncIntervalMs: 60_000,
+    });
+    const alice = new Client({ transport: hub.connectGuest("alice"), playerId: "alice", name: "Alice", color: "#f00" });
+    const bob = new Client({ transport: hub.connectGuest("bob"), playerId: "bob", name: "Bob", color: "#0f0" });
+    await waitUntil(() => alice.isReady() && bob.isReady());
+
+    alice.grab(0);
+    await waitUntil(() => host.getState().heldBy[0] === "alice");
+
+    // Mid-drag, BEFORE any drop — Bob must see this without waiting for DROP/SNAP.
+    alice.move(0, { x: 17, y: -9 });
+    await waitUntil(() => bob.getState().groups[0]?.offset.x === 17 && bob.getState().groups[0]?.offset.y === -9);
+
+    host.close();
+    alice.close();
+    bob.close();
+  });
+});
+
+describe("Host local play (the Host's own browser is a player too)", () => {
+  it("grab/move/drop apply synchronously and reach a connected Guest, identically to a Guest's own actions", async () => {
+    const puzzle = makePuzzle();
+    const hub = new LoopbackHub();
+    const host = new Host({
+      transport: hub.connectHost("host-player"),
+      puzzle,
+      scatterOffsets: {},
+      hostPlayerId: "host-player",
+      hostPlayer: makeHostPlayer(),
+      resyncIntervalMs: 60_000,
+    });
+    const guest = new Client({
+      transport: hub.connectGuest("guest-1"),
+      playerId: "guest-1",
+      name: "Guest",
+      color: "#222222",
+    });
+    await waitUntil(() => guest.isReady());
+
+    // Synchronous result, unlike Client.grab() — the Host is the arbiter.
+    expect(host.grab(0)).toEqual({ granted: true });
+    expect(host.getState().heldBy[0]).toBe("host-player");
+
+    host.move(0, { x: 30, y: 40 });
+    expect(host.getState().groups[0]?.offset).toEqual({ x: 30, y: 40 });
+    // The Guest should see the Host's live drag relayed to it, not just the eventual drop.
+    await waitUntil(() => guest.getState().groups[0]?.offset.x === 30);
+
+    host.drop(0, { x: 30, y: 40 });
+    expect(host.getState().heldBy[0]).toBeUndefined();
+    await waitUntil(
+      () => guest.getState().groups[0]?.offset.x === 30 && guest.getState().heldBy[0] === undefined
+    );
+
+    host.close();
+    guest.close();
+  });
+
+  it("denies the Host's own grab on a Group a Guest already holds, exactly like a Guest-vs-Guest race", async () => {
+    const puzzle = makePuzzle();
+    const hub = new LoopbackHub();
+    const host = new Host({
+      transport: hub.connectHost("host-player"),
+      puzzle,
+      scatterOffsets: {},
+      hostPlayerId: "host-player",
+      hostPlayer: makeHostPlayer(),
+      resyncIntervalMs: 60_000,
+    });
+    const guest = new Client({
+      transport: hub.connectGuest("guest-1"),
+      playerId: "guest-1",
+      name: "Guest",
+      color: "#222222",
+    });
+    await waitUntil(() => guest.isReady());
+
+    guest.grab(0);
+    await waitUntil(() => host.getState().heldBy[0] === "guest-1");
+
+    expect(host.grab(0)).toEqual({ granted: false, reason: "held" });
+    expect(host.getState().heldBy[0]).toBe("guest-1"); // unchanged — the Guest keeps the lock
+
+    host.close();
+    guest.close();
+  });
+
+  it("fires onChange for both local actions and Guest-originated ones", async () => {
+    const puzzle = makePuzzle();
+    const hub = new LoopbackHub();
+    const host = new Host({
+      transport: hub.connectHost("host-player"),
+      puzzle,
+      scatterOffsets: {},
+      hostPlayerId: "host-player",
+      hostPlayer: makeHostPlayer(),
+      resyncIntervalMs: 60_000,
+    });
+    let changes = 0;
+    const unsubscribe = host.onChange(() => {
+      changes += 1;
+    });
+
+    host.grab(1); // local
+    expect(changes).toBeGreaterThan(0);
+    const afterLocal = changes;
+
+    const guest = new Client({
+      transport: hub.connectGuest("guest-1"),
+      playerId: "guest-1",
+      name: "Guest",
+      color: "#222222",
+    });
+    await waitUntil(() => guest.isReady());
+    guest.grab(0);
+    await waitUntil(() => changes > afterLocal); // Guest-originated grab also notifies
+
+    unsubscribe();
+    const beforeUnsub = changes;
+    host.move(1, { x: 5, y: 5 });
+    expect(changes).toBe(beforeUnsub); // unsubscribed — no further notifications
+
+    host.close();
+    guest.close();
+  });
+});
+
+describe("Host resume-as-Host (initialState)", () => {
+  it("seeds from a persisted GameState instead of re-scattering, per CONTEXT.md's Session lifecycle", async () => {
+    const puzzle = makePuzzle();
+    const persisted: GameState = {
+      groups: {
+        // Pieces 0 and 1 already merged into one Group mid-board — this is
+        // exactly what a fresh scatter would never produce, so its presence
+        // in the resumed Host proves the snapshot was actually used.
+        0: { id: 0, pieceIds: [0, 1], offset: { x: 12, y: 7 }, z: 3 },
+        2: { id: 2, pieceIds: [2], offset: { x: -40, y: 15 }, z: 1 },
+      },
+      heldBy: {},
+      nextZ: 4,
+      nextGroupId: 3,
+    };
+
+    const hub = new LoopbackHub();
+    const host = new Host({
+      transport: hub.connectHost("host-player"),
+      puzzle,
+      scatterOffsets: {}, // must be ignored in favour of initialState
+      hostPlayerId: "host-player",
+      hostPlayer: makeHostPlayer(),
+      resyncIntervalMs: 60_000,
+      initialState: persisted,
+    });
+
+    expect(host.getState()).toEqual(persisted);
+
+    const guest = new Client({
+      transport: hub.connectGuest("guest-1"),
+      playerId: "guest-1",
+      name: "Guest",
+      color: "#222222",
+    });
+    await waitUntil(() => guest.isReady());
+    // The Guest's WELCOME must carry the resumed state, not a fresh scatter.
+    expect(guest.getState()).toEqual(persisted);
+
+    host.close();
+    guest.close();
   });
 });
 
