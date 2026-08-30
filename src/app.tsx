@@ -194,6 +194,14 @@ class RoomSessionController {
 
   dispose(): void {
     this.cancelled = true;
+    // Leaving the Room (navigating home to start another puzzle, or plain
+    // unmount) would otherwise drop up to SNAPSHOT_DEBOUNCE_MS of moves on
+    // the floor: teardownHost only cancels the pending timer. Fire the write
+    // first — it serialises synchronously, so the request is already on the
+    // wire before the scheduler goes away. Deliberately not in teardownHost
+    // itself, which also runs on the deposed path where our epoch is stale
+    // and the write is guaranteed to be rejected.
+    void this.scheduler?.flushNow();
     this.teardownGuest();
     this.teardownHost();
   }
@@ -613,6 +621,11 @@ function RoomScreenController({ code }: { code: string }) {
           <BoardMount onMount={handleBoardMount} />
           <div className="chrome chrome--left">
             <ShareLink url={roomUrl} />
+            {/* Progress is saved on the way out (see dispose), and this Room
+                keeps its link — so this is "start another one", not "quit". */}
+            <button type="button" className="tag tag--btn" onClick={navigateHome}>
+              Start a new puzzle
+            </button>
           </div>
           <div className="chrome chrome--right">
             <PlayerList

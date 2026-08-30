@@ -14,7 +14,7 @@
  * prompt only surfaces on hover so the picture stays the point.
  */
 
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useCallback, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { getPublicImageUrl, normaliseAndUploadImage } from "../supabase/storageUpload";
 
 export type UploadedImage = {
@@ -27,11 +27,13 @@ export type UploadFormProps = {
   readonly code: string;
   readonly uploaded: UploadedImage | null;
   readonly onUploaded: (image: UploadedImage) => void;
+  /** Cut-line preview drawn over the box art (see PuzzlePreview). */
+  readonly overlay?: ReactNode;
 };
 
 type Phase = "idle" | "working" | "error";
 
-export function UploadForm({ code, uploaded, onUploaded }: UploadFormProps) {
+export function UploadForm({ code, uploaded, onUploaded, overlay }: UploadFormProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [statusText, setStatusText] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +101,10 @@ export function UploadForm({ code, uploaded, onUploaded }: UploadFormProps) {
         aria-label={uploaded ? "Replace the photo" : "Choose a photo"}
       >
         {previewUrl && !working && (
-          <img className="well__img" src={previewUrl} alt="" aria-hidden="true" />
+          <>
+            <img className="well__img" src={previewUrl} alt="" aria-hidden="true" />
+            {overlay}
+          </>
         )}
 
         <span className={`well__body${previewUrl && !working ? " well__body--over-img" : ""}`}>

@@ -178,6 +178,15 @@ input {
   object-fit: contain;
 }
 
+/* The live cut-line preview, drawn over the box art (PuzzlePreview). */
+.well__cut {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .well__body {
   position: absolute;
   inset: 0;
@@ -490,6 +499,10 @@ input {
 
 .chrome--left {
   left: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .chrome--right {
@@ -504,6 +517,25 @@ input {
     0 8px 20px rgba(0, 0, 0, 0.4);
   color: var(--ink);
   padding: 10px 12px;
+}
+
+/* A tag that is itself a button — quiet, same chipboard as the other chrome. */
+.tag--btn {
+  border: 0;
+  padding: 8px 13px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.tag--btn:hover {
+  background: linear-gradient(178deg, #f4ecdd, var(--chip-hi));
+}
+
+.tag--btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--chip-edge), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Share link ── */

@@ -14,6 +14,7 @@ import { createRoom, generateRoomCode } from "../supabase/rooms";
 import { fitGrid } from "../puzzle/layout";
 import { PieceCountPicker } from "./PieceCountPicker";
 import { UploadForm, type UploadedImage } from "./UploadForm";
+import { PuzzlePreview } from "./PuzzlePreview";
 
 export type HomeScreenProps = {
   readonly onRoomCreated: (code: string) => void;
@@ -21,6 +22,10 @@ export type HomeScreenProps = {
 
 export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
   const [code] = useState(() => generateRoomCode());
+  // Chosen once, up front: PuzzlePreview draws the real cut for this seed, so
+  // generating a fresh one at create time would hand the player a different
+  // puzzle than the one they just looked at.
+  const [seed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [pieceTarget, setPieceTarget] = useState<number>(PIECE_PRESETS[1]);
   const [uploaded, setUploaded] = useState<UploadedImage | null>(null);
   const [creating, setCreating] = useState(false);
@@ -37,7 +42,6 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
     setError(null);
     try {
       const grid = fitGrid(uploaded.width, uploaded.height, pieceTarget);
-      const seed = Math.floor(Math.random() * 0x7fffffff);
       const result = await createRoom({
         code,
         seed,
@@ -61,7 +65,23 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
     <div className="page">
       <div style={{ width: "100%", maxWidth: 470 }}>
         <div className="lid lid--home">
-          <UploadForm code={code} uploaded={uploaded} onUploaded={setUploaded} />
+          <UploadForm
+            code={code}
+            uploaded={uploaded}
+            onUploaded={setUploaded}
+            overlay={
+              uploaded && fitted ? (
+                <PuzzlePreview
+                  imageUrl={code}
+                  imageWidth={uploaded.width}
+                  imageHeight={uploaded.height}
+                  seed={seed}
+                  rows={fitted.rows}
+                  cols={fitted.cols}
+                />
+              ) : null
+            }
+          />
 
           <h1 className="wordmark">Jigsaw</h1>
           <p className="tagline">
