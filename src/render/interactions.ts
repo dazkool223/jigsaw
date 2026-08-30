@@ -2,7 +2,7 @@
  * Pointer input for the board: hit-testing, dragging a Group, panning, and
  * zooming. This module owns raw DOM pointer/wheel/keyboard events and turns
  * them into either Viewport changes (applied locally, no authority needed)
- * or *intents* delivered through callbacks — it never imports src/game or
+ * or *intents* delivered through callbacks - it never imports src/game or
  * src/net, and never mutates GameState itself. The caller (wired to
  * Host/Client) decides whether a grab is granted, performs the actual move,
  * and feeds the resulting GameState back through `PuzzleRenderer.sync`.
@@ -12,7 +12,7 @@
  * that survive it. Piece outlines are already absolute image-space
  * coordinates at rest (Group offset (0, 0)), so testing a world-space click
  * only requires translating the point by *minus* the Group's current offset
- * before testing against the Piece's own (untranslated, cached) Path2D —
+ * before testing against the Piece's own (untranslated, cached) Path2D -
  * no per-drag path rebuilding.
  */
 
@@ -29,12 +29,12 @@ export type InteractionCallbacks = {
   readonly onDrop?: (groupId: GroupId, offset: Point) => void;
   /** Fired whenever pan/zoom/pinch changes the Viewport. */
   readonly onViewportChange?: (viewport: Viewport) => void;
-  /** Fired on pointer movement over the board, in world space — for broadcasting the local cursor. */
+  /** Fired on pointer movement over the board, in world space - for broadcasting the local cursor. */
   readonly onCursorMove?: (world: Point) => void;
 };
 
 export type InteractionsOptions = {
-  /** Element pointer/wheel/keyboard listeners attach to — typically the Pixi canvas. */
+  /** Element pointer/wheel/keyboard listeners attach to - typically the Pixi canvas. */
   readonly element: HTMLElement;
   readonly getViewport: () => Viewport;
   readonly getPieces: () => readonly Piece[];
@@ -56,7 +56,7 @@ type Mode =
 
 /**
  * Attaches listeners to `opts.element` on construction; call `destroy()` to
- * remove them. Stateless with respect to game logic — safe to construct
+ * remove them. Stateless with respect to game logic - safe to construct
  * once per board mount and keep for the component's lifetime.
  */
 export class Interactions {

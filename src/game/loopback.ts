@@ -5,15 +5,15 @@
  * rather than a game-logic rewrite.
  *
  * Modelled as a genuine STAR, matching the real topology (net/'s
- * guestNet.ts is a single RTCPeerConnection to the Host — a Guest can never
+ * guestNet.ts is a single RTCPeerConnection to the Host - a Guest can never
  * reach another Guest directly):
  *   - the Host's transport can address a specific Guest or BROADCAST to all;
  *   - a Guest's transport only ever has one peer, the Host, and everything
- *     it sends — BROADCAST or not — goes there.
+ *     it sends - BROADCAST or not - goes there.
  * Guest-to-Guest fan-out would hide topology bugs that only show up once a
  * real star (or WebRTC) is wired in, so it is deliberately not supported.
  *
- * Delivery is always deferred via setTimeout(0) — never synchronous — so
+ * Delivery is always deferred via setTimeout(0) - never synchronous - so
  * ordering bugs that a same-tick call stack would paper over still show up
  * in tests.
  */
@@ -107,7 +107,7 @@ class GuestLoopbackTransport extends BaseLoopbackTransport {
   }
 
   send(channel: Channel, _to: Recipient, msg: unknown): void {
-    // A Guest's only peer is the Host, regardless of the `to` argument —
+    // A Guest's only peer is the Host, regardless of the `to` argument -
     // there is no one else it could reach in a star topology.
     if (this.isClosed()) return;
     this.hub.routeFromGuest(channel, msg, this.playerId);
@@ -137,7 +137,7 @@ export class LoopbackHub {
 
   connectGuest(guestId?: PlayerId): Transport {
     if (!this.host) {
-      throw new Error("LoopbackHub has no Host yet — connect one first");
+      throw new Error("LoopbackHub has no Host yet - connect one first");
     }
     const id = guestId ?? `guest-${++anonymousGuestCounter}`;
     if (this.guests.has(id)) {

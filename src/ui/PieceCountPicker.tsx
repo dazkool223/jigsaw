@@ -1,7 +1,7 @@
 /**
- * Piece-count selector, driven entirely by config.ts's PIECE_PRESETS — never
+ * Piece-count selector, driven entirely by config.ts's PIECE_PRESETS - never
  * hard-code the preset list here. Labelled "~N" because grid fitting to the
- * image aspect means the real count differs (500 on 4:3 is actually 494) —
+ * image aspect means the real count differs (500 on 4:3 is actually 494) -
  * see puzzle/layout.ts#fitGrid. HomeScreen prints the exact fitted grid
  * beneath these keys once a photo is in, so the approximation is never the
  * last word the player gets.

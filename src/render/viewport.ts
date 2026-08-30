@@ -1,5 +1,5 @@
 /**
- * Pure pan/zoom maths for the board camera. No Pixi, no DOM — everything here
+ * Pure pan/zoom maths for the board camera. No Pixi, no DOM - everything here
  * is testable without a browser.
  *
  * The Viewport maps world space (image-space puzzle coordinates) to screen
@@ -56,7 +56,7 @@ export function pan(viewport: Viewport, screenDelta: Point): Viewport {
 
 /**
  * Zoom so that `screenPoint` (in CSS pixels, relative to the canvas) stays
- * fixed in screen space — the standard "zoom to cursor" feel. `deltaScale` is
+ * fixed in screen space - the standard "zoom to cursor" feel. `deltaScale` is
  * a multiplier applied to the current scale (e.g. 1.1 to zoom in 10%), and
  * the result is clamped to [ZOOM_MIN, ZOOM_MAX]. If the clamp caps the
  * requested scale, the cursor point is still held fixed at the achieved
@@ -82,7 +82,7 @@ export function zoomToCursor(viewport: Viewport, screenPoint: Point, deltaScale:
 /**
  * A Viewport that fits `content` (world-space rect) centred within a screen
  * of size `screenW` x `screenH`, with `paddingPx` of screen-space breathing
- * room on every side. Scale is clamped to [ZOOM_MIN, ZOOM_MAX] — a content
+ * room on every side. Scale is clamped to [ZOOM_MIN, ZOOM_MAX] - a content
  * rect much larger or smaller than the screen will not perfectly fill it if
  * that would require zooming past the configured limits.
  */

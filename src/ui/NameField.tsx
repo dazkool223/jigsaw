@@ -1,10 +1,10 @@
 /**
- * "Who's playing" on the home screen — the one place a name can be set before
+ * "Who's playing" on the home screen - the one place a name can be set before
  * a Room exists.
  *
  * Identity is cosmetic and per-device (src/supabase/identity.ts), so this
  * writes straight through to `renameIdentity` rather than reporting upward:
- * whoever ends up reading `getIdentity()` at connect time — Host or Client —
+ * whoever ends up reading `getIdentity()` at connect time - Host or Client -
  * picks up whatever was typed here, with no plumbing in between.
  *
  * Presented as the place card at the table: the swatch is this device's real

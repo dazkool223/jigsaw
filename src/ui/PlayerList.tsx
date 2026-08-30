@@ -1,9 +1,9 @@
 /**
  * Connected Players with their cursor colours (CONTEXT.md "Player"). Your own
- * name is editable inline — identity is cosmetic, persisted per-device via
+ * name is editable inline - identity is cosmetic, persisted per-device via
  * src/supabase/identity.ts, so renaming here is expected to call
  * `renameIdentity` (the caller wires that through `onRename`). Capacity is
- * shown against config.ts's MAX_PLAYERS — never hard-coded.
+ * shown against config.ts's MAX_PLAYERS - never hard-coded.
  */
 
 import { useState } from "react";

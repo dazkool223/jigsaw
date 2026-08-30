@@ -5,7 +5,7 @@
  * and pulls a resync when it notices a sequence gap on the control channel.
  *
  * Talks over a Transport (see ../types.ts) using the canonical wire shapes
- * from `../net/protocol` — see that module's "SEQUENCING" note, which this
+ * from `../net/protocol` - see that module's "SEQUENCING" note, which this
  * class implements: `checkSeqGap` runs only for genuine control-channel
  * broadcasts (GRAB_GRANTED, SNAP, PLAYER_LIST, COMPLETE); WELCOME and
  * FULL_STATE instead adopt `seq` as a new baseline without gap-checking it,
@@ -97,7 +97,7 @@ export class Client {
 
   /**
    * The most recent grab this Client requested that the Host denied (CONTEXT.md:
-   * "a denied grab snaps the Group back for the loser") — lets the UI react.
+   * "a denied grab snaps the Group back for the loser") - lets the UI react.
    * Not auto-cleared; overwritten by the next denial.
    */
   getLastGrabDenied(): { readonly groupId: GroupId; readonly reason: "held" | "not-found" } | undefined {
@@ -161,7 +161,7 @@ export class Client {
 
   private handleMessage(raw: unknown): void {
     const msg = parseMessage(raw);
-    if (!msg) return; // malformed / not a Host->Guest shape we recognise — drop
+    if (!msg) return; // malformed / not a Host->Guest shape we recognise - drop
 
     switch (msg.type) {
       case "WELCOME":
@@ -175,7 +175,7 @@ export class Client {
         break;
 
       case "ROOM_FULL":
-        // Not part of the ordered stream — no seq to track.
+        // Not part of the ordered stream - no seq to track.
         this.joinDeniedReason = "room-full";
         break;
 
@@ -193,14 +193,14 @@ export class Client {
       case "GRAB_DENIED":
         if (msg.playerId === this.playerId) {
           this.lastGrabDenied = { groupId: msg.groupId, reason: msg.reason };
-          // We don't know the true holder/position from this message alone —
+          // We don't know the true holder/position from this message alone -
           // pull a resync so our optimistic view converges with the Host's.
           this.requestResync();
         }
         break;
 
       case "MOVE":
-        // Unreliable `stream` channel — staleness-checked, not gap-checked.
+        // Unreliable `stream` channel - staleness-checked, not gap-checked.
         if (this.acceptStream(msg)) {
           this.state = moveGroup(this.state, msg.groupId, msg.offset);
         }
@@ -234,7 +234,7 @@ export class Client {
     this.notify();
   }
 
-  /** Staleness gate for the unreliable `stream` channel — see protocol.ts's SEQUENCING note. */
+  /** Staleness gate for the unreliable `stream` channel - see protocol.ts's SEQUENCING note. */
   private acceptStream(msg: StreamMessage): boolean {
     const last = this.lastStreamSeq.get(msg.playerId) ?? -1;
     if (dropStale(last, msg)) return false;
@@ -251,7 +251,7 @@ export class Client {
     const group = this.state.groups[groupId];
     if (!group) return;
     // Trust the Host unconditionally (unlike state.ts's grabGroup, which is
-    // the Host's *arbitration* logic) — this is just applying its verdict.
+    // the Host's *arbitration* logic) - this is just applying its verdict.
     const heldBy = { ...this.state.heldBy, [groupId]: playerId };
     const groups = { ...this.state.groups, [groupId]: { ...group, z } };
     this.state = { ...this.state, groups, heldBy };
@@ -259,7 +259,7 @@ export class Client {
 
   /**
    * SNAP carries the Host's already-merged result directly (full post-merge
-   * `groups`, plus `removedGroupIds`), so — unlike the old local protocol —
+   * `groups`, plus `removedGroupIds`), so - unlike the old local protocol -
    * the Client doesn't replay the merge itself via mergeGroups; it just
    * adopts the given groups verbatim and drops the removed ids. `heldBy` is
    * cleared for every id in both lists (a dropped Group is implicitly no

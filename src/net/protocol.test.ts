@@ -156,7 +156,7 @@ describe("parseMessage", () => {
       ...genericMalformed,
       Symbol("weird"),
       new Date(),
-      // A getter that throws — must not escape parseMessage.
+      // A getter that throws - must not escape parseMessage.
       Object.defineProperty({}, "type", {
         get() {
           throw new Error("boom");

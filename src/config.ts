@@ -4,7 +4,7 @@
  *
  * The file has two halves, and they are NOT equally safe to change:
  *
- *   GEOMETRY  — part of a Room's identity. A Room persists only
+ *   GEOMETRY  - part of a Room's identity. A Room persists only
  *               (image, seed, rows, cols) and regenerates all geometry from it,
  *               so changing any geometry constant makes existing Rooms
  *               regenerate DIFFERENT shapes while their saved Snapshots still
@@ -12,11 +12,11 @@
  *               anything in this half; the Room row stores it so a mismatch
  *               becomes a clear message instead of a corrupt board.
  *
- *   RUNTIME   — safe to tune at any time. No effect on puzzle identity.
+ *   RUNTIME   - safe to tune at any time. No effect on puzzle identity.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GEOMETRY — baked into puzzle identity. Bump GEOMETRY_VERSION when changing.
+// GEOMETRY - baked into puzzle identity. Bump GEOMETRY_VERSION when changing.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Bump whenever ANY constant in the geometry half changes. */
@@ -49,7 +49,7 @@ export const TAB_SIZE_RATIO = 0.22;
 export const TAB_SIZE_JITTER = 0.15;
 
 /**
- * Max displacement of interior Cell vertices as a fraction of Cell size — the
+ * Max displacement of interior Cell vertices as a fraction of Cell size - the
  * "hand-cut" look that stops the puzzle reading as a perfect grid. Too large
  * and a Tab neck can collide with an adjacent cut line: keep <= 0.10.
  */
@@ -68,7 +68,7 @@ export const TAB_NECK_RATIO = 0.18;
 export const TAB_BULB_RATIO = 0.34;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RUNTIME — safe to tune any time; no effect on puzzle identity.
+// RUNTIME - safe to tune any time; no effect on puzzle identity.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Rendering ──
@@ -134,7 +134,7 @@ export const MAX_PLAYERS = 8;
 /**
  * Display-name cap. A name rides every JOIN and then sits in a fixed-width
  * chip in the board chrome, so this is a layout bound as much as a wire one.
- * Applies wherever a name can be typed — the home screen and the in-room list.
+ * Applies wherever a name can be typed - the home screen and the in-room list.
  */
 export const PLAYER_NAME_MAX_LENGTH = 24;
 

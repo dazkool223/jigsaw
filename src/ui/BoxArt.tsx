@@ -7,8 +7,8 @@
  * and "which piece is this".
  *
  * Two controls, because a reference has two failure modes. It can be in the
- * way — so it collapses to its header, and stays collapsed for the rest of the
- * session. And it can be too small to read at 500 pieces in a 200px tag — so
+ * way - so it collapses to its header, and stays collapsed for the rest of the
+ * session. And it can be too small to read at 500 pieces in a 200px tag - so
  * clicking it props the lid up full size, which is also the size at which
  * PuzzlePreview starts drawing the cut at all.
  */

@@ -23,7 +23,7 @@ describe("assertUploadSize", () => {
   });
 });
 
-describe("decodeUpload — size is rejected before any decode is attempted", () => {
+describe("decodeUpload - size is rejected before any decode is attempted", () => {
   const originalCreateImageBitmap = globalThis.createImageBitmap;
 
   afterEach(() => {
@@ -93,7 +93,7 @@ describe("computeScaledDimensions", () => {
   });
 });
 
-describe("encodeNormalisedImage — WebP-vs-JPEG fallback decision", () => {
+describe("encodeNormalisedImage - WebP-vs-JPEG fallback decision", () => {
   function stubCanvas(
     behavior: (type: string | undefined) => Blob | null,
   ): BlobEncodableCanvas {

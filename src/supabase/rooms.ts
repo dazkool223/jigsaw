@@ -1,7 +1,7 @@
 /**
  * Typed wrappers over the `rooms` security-definer RPCs (see supabase/schema.sql
  * and docs/adr/0001-host-epoch-and-rpc-only-access.md). There is no direct
- * table access — every function here calls an RPC that requires the Room
+ * table access - every function here calls an RPC that requires the Room
  * `code` to be presented, because that's what makes the code a credential.
  */
 
@@ -46,7 +46,7 @@ export type CreateRoomResult =
  * generateRoomCode() and have already uploaded the normalised image (see
  * storageUpload.ts) so `imagePath` is the final `rooms/<code>/image` path.
  *
- * geometry_version is always the app's current GEOMETRY_VERSION — a Room is
+ * geometry_version is always the app's current GEOMETRY_VERSION - a Room is
  * stamped with the geometry constants in force when it was created.
  */
 export async function createRoom(params: CreateRoomParams): Promise<CreateRoomResult> {
@@ -72,7 +72,7 @@ export type GetRoomResult =
    * The Room exists but was created under different geometry constants
    * (src/config.ts's GEOMETRY_VERSION has moved on). Regenerating geometry
    * from (seed, rows, cols) today would NOT match the shapes the saved
-   * Snapshot describes — see config.ts's GEOMETRY block. The caller must show
+   * Snapshot describes - see config.ts's GEOMETRY block. The caller must show
    * a clear message rather than render the mismatch.
    */
   | { outcome: "geometry_mismatch"; room: RoomRow }
@@ -87,7 +87,7 @@ export async function getRoom(code: string): Promise<GetRoomResult> {
   }
   // A Postgres function returning a single composite row that matched
   // nothing comes back as either null or an all-null row, depending on
-  // client/driver version — treat both as "not found".
+  // client/driver version - treat both as "not found".
   if (!data || (data as RoomRow).code == null) {
     return { outcome: "not_found" };
   }
@@ -127,7 +127,7 @@ export async function claimHost(code: string, expectedEpoch: number): Promise<Cl
 
 export type SaveSnapshotResult =
   | { outcome: "written" }
-  /** host_epoch moved on — a newer Host has claimed the Room. Self-demote. */
+  /** host_epoch moved on - a newer Host has claimed the Room. Self-demote. */
   | { outcome: "deposed" }
   | { outcome: "error"; error: string };
 

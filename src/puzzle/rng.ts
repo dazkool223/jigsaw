@@ -1,8 +1,8 @@
 /**
  * Deterministic PRNG. Every geometry aspect (vertex jitter, Tab direction,
  * Tab position, Tab size, scatter offsets, ...) must derive its randomness
- * from here — never `Math.random`, `Date.now`, or any other external entropy
- * — so that the same (image, seed, rows, cols) always regenerates byte-
+ * from here - never `Math.random`, `Date.now`, or any other external entropy
+ * - so that the same (image, seed, rows, cols) always regenerates byte-
  * identical geometry on every peer and every run.
  *
  * `mulberry32` is pure 32-bit integer/float arithmetic (no platform-specific

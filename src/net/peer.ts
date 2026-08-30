@@ -1,7 +1,7 @@
 /**
  * A thin, protocol-agnostic wrapper around one `RTCPeerConnection` and its
  * two data channels (`control`: reliable/ordered, `stream`: unreliable/
- * unordered). This file knows nothing about `protocol.ts` — it moves bytes
+ * unordered). This file knows nothing about `protocol.ts` - it moves bytes
  * (JSON-encoded) in and out and manages connection lifecycle.
  *
  * WebRTC lifecycle is the highest-risk part of this project (see the plan's
@@ -17,7 +17,7 @@
  * suitable for direct display (see CONNECT_TIMEOUT_MS handling below).
  *
  * The Guest is ALWAYS the offerer (role: "offerer") and the Host ALWAYS
- * answers (role: "answerer") — this sidesteps negotiation glare entirely,
+ * answers (role: "answerer") - this sidesteps negotiation glare entirely,
  * so there is no glare-handling logic here by design.
  *
  * The `RTCPeerConnection` constructor is injectable via `createPeerConnection`
@@ -32,7 +32,7 @@ export type PeerRole = "offerer" | "answerer";
 export type PeerState = "new" | "connecting" | "connected" | "failed" | "closed";
 
 const USER_FACING_TIMEOUT_MESSAGE =
-  "Couldn't connect — this can happen on some mobile networks";
+  "Couldn't connect - this can happen on some mobile networks";
 
 /** The subset of `RTCDataChannel` this module needs. Real channels satisfy it. */
 export interface DataChannelLike {
@@ -76,7 +76,7 @@ export interface PeerOptions {
   readonly role: PeerRole;
   /** Injectable for testing; defaults to the real global RTCPeerConnection. */
   readonly createPeerConnection?: CreatePeerConnection;
-  /** Overrides CONNECT_TIMEOUT_MS from config — tests only. */
+  /** Overrides CONNECT_TIMEOUT_MS from config - tests only. */
   readonly connectTimeoutMs?: number;
   /** Optional label for log lines, e.g. a PlayerId. */
   readonly logLabel?: string;
@@ -137,7 +137,7 @@ export class Peer {
     return this.state;
   }
 
-  /** Set only when state is "failed" — a user-facing explanation. */
+  /** Set only when state is "failed" - a user-facing explanation. */
   getFailureMessage(): string | undefined {
     return this.failureMessage;
   }
@@ -192,7 +192,7 @@ export class Peer {
     const dc = channel === "control" ? this.controlChannel : this.streamChannel;
     if (!dc || dc.readyState !== "open") {
       console.warn(
-        `[peer:${this.logLabel}] dropped send on "${channel}" — channel not open`,
+        `[peer:${this.logLabel}] dropped send on "${channel}" - channel not open`,
       );
       return;
     }
@@ -224,7 +224,7 @@ export class Peer {
     try {
       this.pc.close();
     } catch {
-      // already closed — fine.
+      // already closed - fine.
     }
     this.transition("closed");
   }
@@ -252,10 +252,10 @@ export class Peer {
     }
 
     dc.onopen = () => {
-      // "connected" is gated on the reliable control channel being open —
+      // "connected" is gated on the reliable control channel being open -
       // that's the channel JOIN/WELCOME/GRAB/etc. travel on, so it's the
       // meaningful readiness signal. `stream` opening is not separately
-      // tracked as a state — it's best-effort by design.
+      // tracked as a state - it's best-effort by design.
       if (dc.label === "control" && this.state === "connecting") {
         this.transition("connected");
       }
@@ -290,7 +290,7 @@ export class Peer {
     } else if (s === "closed") {
       this.transition("closed");
     }
-    // "connected" is intentionally NOT driven from here — see attachChannel:
+    // "connected" is intentionally NOT driven from here - see attachChannel:
     // we gate on the control data channel's `open` event instead, since that
     // is what actually matters to callers (able to send/receive messages).
   }

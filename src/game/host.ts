@@ -3,7 +3,7 @@
  * (see ../types.ts), and is the only thing that ever decides a grab, a
  * merge, or Completion.
  *
- * Wire messages are the canonical shapes from `../net/protocol` — see that
+ * Wire messages are the canonical shapes from `../net/protocol` - see that
  * module for the full message list and its "SEQUENCING" note, which this
  * class implements: `nextSeq()` is called only for genuine control-channel
  * broadcasts (GRAB_GRANTED, SNAP, PLAYER_LIST, COMPLETE, the periodic-resync
@@ -55,7 +55,7 @@ export type HostOptions = {
   /**
    * The Host Epoch to stamp on WELCOME (protocol.ts requires it). Host Epoch
    * arbitration itself (ADR-0001) lives in the session/Supabase layer, which
-   * is out of scope for game/host.ts — this is just a pass-through so a
+   * is out of scope for game/host.ts - this is just a pass-through so a
    * caller that HAS claimed an epoch can thread it through. Defaults to 0
    * for callers (e.g. the M1 loopback path) that don't have one yet.
    */
@@ -64,7 +64,7 @@ export type HostOptions = {
    * Resume-as-Host (CONTEXT.md "Session lifecycle"): a previously-saved
    * Snapshot, deserialized (see state.ts's `deserialize`), to start from
    * instead of a fresh scatter. Without this, claiming Host on a Room with an
-   * in-progress board would silently re-scatter it — the M2 verification
+   * in-progress board would silently re-scatter it - the M2 verification
    * criterion is "exact positions restored", not "puzzle restarted".
    */
   readonly initialState?: GameState;
@@ -77,11 +77,11 @@ export class Host {
   private readonly players = new Map<PlayerId, Player>();
   private readonly hostEpoch: number;
   private seq = 0;
-  /** Own outbound counter for everything THIS Host originates on `stream` (local play only — relayed Guest messages keep their own seq). */
+  /** Own outbound counter for everything THIS Host originates on `stream` (local play only - relayed Guest messages keep their own seq). */
   private outStreamSeq = -1;
   /** Per-sender staleness tracking for the unreliable `stream` channel (MOVE, CURSOR). */
   private readonly lastStreamSeq = new Map<PlayerId, number>();
-  /** Latest known cursor per Guest, for the Host's OWN screen — see getCursors(). */
+  /** Latest known cursor per Guest, for the Host's OWN screen - see getCursors(). */
   private readonly cursors = new Map<PlayerId, Point>();
   private resyncTimer: ReturnType<typeof setInterval> | undefined;
   private readonly unsubscribers: Array<() => void> = [];
@@ -137,12 +137,12 @@ export class Host {
   // ── Local intents (the Host's own browser is a player too) ──
   //
   // The Host is authoritative, so its own input never round-trips through the
-  // Transport the way a Guest's does — these apply directly and return the
+  // Transport the way a Guest's does - these apply directly and return the
   // result synchronously, then notify(). They otherwise do exactly what the
   // matching handle*() method below does for a Guest, via the same shared
   // perform*() helpers, so the two paths cannot drift apart.
 
-  /** Unlike Client.grab() (whose denial arrives later via GRAB_DENIED), this resolves synchronously — the Host IS the arbiter. */
+  /** Unlike Client.grab() (whose denial arrives later via GRAB_DENIED), this resolves synchronously - the Host IS the arbiter. */
   grab(groupId: GroupId): { readonly granted: boolean; readonly reason?: "held" | "not-found" } {
     const result = this.performGrab(this.hostPlayerId, groupId);
     this.notify();
@@ -180,7 +180,7 @@ export class Host {
 
   private handleMessage(from: PlayerId, raw: unknown): void {
     const msg = parseMessage(raw);
-    if (!msg) return; // malformed / not a Guest->Host shape we recognise — drop
+    if (!msg) return; // malformed / not a Guest->Host shape we recognise - drop
 
     switch (msg.type) {
       case "JOIN":
@@ -194,7 +194,7 @@ export class Host {
           if (this.performMove(from, msg.groupId, msg.offset)) {
             this.notify();
             // Relay unmodified (own seq preserved) so other players can lerp
-            // this Guest's live drag — see protocol.ts's SEQUENCING note for
+            // this Guest's live drag - see protocol.ts's SEQUENCING note for
             // why CURSOR already does this; MOVE needs the same treatment or
             // remote motion never appears until the eventual DROP/SNAP.
             this.transport.send("stream", BROADCAST, msg);
@@ -207,10 +207,10 @@ export class Host {
       case "CURSOR":
         if (this.acceptStream(from, msg)) {
           // Recorded for the Host's OWN screen (see getCursors()) as well as
-          // relayed — the Host is a player too and never sees its own CURSOR
+          // relayed - the Host is a player too and never sees its own CURSOR
           // messages echoed back to apply them the way a Guest's Client does.
           this.cursors.set(from, msg.point);
-          // Best-effort relay, unmodified (including the original seq) —
+          // Best-effort relay, unmodified (including the original seq) -
           // other Guests gap-check it themselves per-sender.
           this.transport.send("stream", BROADCAST, msg);
         }
@@ -223,7 +223,7 @@ export class Host {
     }
   }
 
-  /** Staleness gate for the unreliable `stream` channel — see protocol.ts's SEQUENCING note. */
+  /** Staleness gate for the unreliable `stream` channel - see protocol.ts's SEQUENCING note. */
   private acceptStream(from: PlayerId, msg: StreamMessage): boolean {
     const last = this.lastStreamSeq.get(from) ?? -1;
     if (dropStale(last, msg)) return false;
@@ -251,7 +251,7 @@ export class Host {
       seq: this.seq,
     });
     // Genuine broadcast: increments. Reaches the new Guest too (redundant
-    // with WELCOME's `players`, but harmless — same idempotent overwrite).
+    // with WELCOME's `players`, but harmless - same idempotent overwrite).
     this.broadcastControl({ type: "PLAYER_LIST", players: this.getPlayers(), seq: this.nextSeq() });
     this.notify();
   }
@@ -288,7 +288,7 @@ export class Host {
   }
 
   // ── Shared arbitration (used by both the Guest-facing handlers above and
-  //    the local-intent methods above them — the ONLY place grab/move/drop
+  //    the local-intent methods above them - the ONLY place grab/move/drop
   //    logic lives, so the Host's own play and a Guest's play can never
   //    diverge in behaviour). ──
 
@@ -309,7 +309,7 @@ export class Host {
     return { granted: true };
   }
 
-  /** Returns false (no-op) if `from` doesn't currently hold `groupId` — stale/unauthorized. */
+  /** Returns false (no-op) if `from` doesn't currently hold `groupId` - stale/unauthorized. */
   private performMove(from: PlayerId, groupId: GroupId, offset: Point): boolean {
     if (this.state.heldBy[groupId] !== from) return false;
     this.state = moveGroup(this.state, groupId, offset);
@@ -317,7 +317,7 @@ export class Host {
   }
 
   private performDrop(from: PlayerId, groupId: GroupId, offset: Point): void {
-    if (this.state.heldBy[groupId] !== from) return; // stale/unauthorized — ignore
+    if (this.state.heldBy[groupId] !== from) return; // stale/unauthorized - ignore
     this.state = moveGroup(this.state, groupId, offset);
     this.state = releaseGroup(this.state, groupId, from);
 
@@ -350,7 +350,7 @@ export class Host {
     this.broadcastControl({ type: "FULL_STATE", state: this.state, seq: this.nextSeq() });
   }
 
-  /** On-demand reply to a Guest's STATE_REQUEST — re-baselines, doesn't consume a seq slot. */
+  /** On-demand reply to a Guest's STATE_REQUEST - re-baselines, doesn't consume a seq slot. */
   private sendFullState(to: PlayerId): void {
     this.sendControl(to, { type: "FULL_STATE", state: this.state, seq: this.seq });
   }

@@ -6,11 +6,11 @@
  * updates. A Piece's world position is ALWAYS `piece.solved + group.offset`,
  * so a Group container's `position` IS `group.offset`, and each Sprite's
  * *local* position inside that container is fixed at
- * `piece.solved + frame.anchor` (computed once in `loadPuzzle`) — the
+ * `piece.solved + frame.anchor` (computed once in `loadPuzzle`) - the
  * renderer never recomputes a Piece's world position by hand.
  *
  * This module owns Pixi. It has no knowledge of Host/Guest, networking, or
- * React — `sync(state, localPlayerId)` is fed a `GameState` snapshot (either
+ * React - `sync(state, localPlayerId)` is fed a `GameState` snapshot (either
  * the authoritative one, or the caller's own optimistic view of it during a
  * local drag) and reconciles the scene to match. It never mutates game
  * state and never imports src/game or src/net.
@@ -27,7 +27,7 @@ export type PuzzleRendererOptions = {
   readonly height: number;
   /** CSS hex/int background behind the board. Defaults to a light neutral. */
   readonly background?: number;
-  /** Passed straight through to `app.init` — typically `window` or a wrapper element. */
+  /** Passed straight through to `app.init` - typically `window` or a wrapper element. */
   readonly resizeTo?: HTMLElement | Window;
   readonly antialias?: boolean;
   readonly resolution?: number;
@@ -35,7 +35,7 @@ export type PuzzleRendererOptions = {
 
 type GroupEntry = {
   readonly container: Container;
-  /** PieceIds already given a Sprite in this container — merges only add. */
+  /** PieceIds already given a Sprite in this container - merges only add. */
   readonly pieceIds: Set<PieceId>;
   /** Latest authoritative/optimistic offset for this Group. */
   target: Point;
@@ -93,7 +93,7 @@ export class PuzzleRenderer {
       canvas,
       width: opts.width,
       height: opts.height,
-      // Table felt — matches --felt in ui/theme.css. The board is most of the
+      // Table felt - matches --felt in ui/theme.css. The board is most of the
       // pixels during play, so this is what makes the app read as one surface
       // rather than a canvas sitting in a page.
       background: opts.background ?? 0x1b3a2f,
@@ -112,7 +112,7 @@ export class PuzzleRenderer {
    * Texture per atlas sheet, slices a per-Piece Texture via each Frame's
    * region, and precomputes every Piece's fixed local position
    * (`piece.solved + frame.anchor`). Also (re)draws the faint Lattice board
-   * outline. Does NOT touch GameState — call `sync` after this to populate
+   * outline. Does NOT touch GameState - call `sync` after this to populate
    * Group containers.
    */
   loadPuzzle(puzzle: Puzzle, sheets: readonly CanvasLike[], frames: ReadonlyMap<PieceId, Frame>): void {
@@ -126,7 +126,7 @@ export class PuzzleRenderer {
     const pieceLocalPos = new Map<PieceId, Point>();
     for (const piece of puzzle.pieces) {
       const frame = frames.get(piece.id);
-      if (!frame) continue; // caller's atlas didn't cover this piece — skip, don't crash the scene
+      if (!frame) continue; // caller's atlas didn't cover this piece - skip, don't crash the scene
       const sheetTexture = sheetTextures[frame.sheet];
       const sliced = new Texture({
         source: sheetTexture.source,
@@ -142,7 +142,7 @@ export class PuzzleRenderer {
     this.pieceLocalPos = pieceLocalPos;
 
     // Existing group containers reference stale/absent textures if this is a
-    // reload — simplest safe path is to drop them; sync() rebuilds on the
+    // reload - simplest safe path is to drop them; sync() rebuilds on the
     // next call. This should only happen once per Room in practice.
     for (const entry of this.groupEntries.values()) {
       entry.container.destroy({ children: true });

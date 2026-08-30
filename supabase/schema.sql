@@ -1,10 +1,10 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Jigsaw — Supabase schema
+-- Jigsaw - Supabase schema
 --
 -- Applied BY HAND in the Supabase dashboard SQL editor. There is no migration
 -- tooling for this project, so this file is the source of truth: whenever you
 -- change something here, re-run the whole file against the project (it is
--- written to be idempotent — safe to re-run top to bottom at any time) and
+-- written to be idempotent - safe to re-run top to bottom at any time) and
 -- keep this file in sync with what actually ran.
 --
 -- SECURITY MODEL (see docs/adr/0001-host-epoch-and-rpc-only-access.md)
@@ -12,7 +12,7 @@
 -- The Room `code` IS the credential: presenting it grants access to that Room,
 -- and it must never be possible to LIST codes. The client authenticates with
 -- the publishable key (Supabase's current name for what used to be called the
--- anon key — same low privilege, still maps to the Postgres role `anon` used
+-- anon key - same low privilege, still maps to the Postgres role `anon` used
 -- throughout this file's grants/policies below) and that key ships in the JS
 -- bundle, so if we granted the `anon` role direct SELECT on `rooms` (even
 -- behind a permissive RLS policy), anyone holding the bundled key could
@@ -29,7 +29,7 @@
 -- HOST EPOCH (single-writer guard, see ADR-0001)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- `host_epoch` is a monotonic counter. Claiming Host is a compare-and-swap
--- increment (`claim_host`) — exactly one concurrent claimant wins. Every
+-- increment (`claim_host`) - exactly one concurrent claimant wins. Every
 -- Snapshot write (`save_snapshot`) must carry the epoch it believes is
 -- current; a write from a deposed Host (stale epoch) is silently rejected
 -- rather than clobbering newer state, and the caller uses the boolean return
@@ -57,7 +57,7 @@ create table if not exists public.rooms (
 
 comment on table public.rooms is
   'One row per puzzle Room. code is the unguessable credential (nanoid, '
-  'ROOM_CODE_LENGTH chars) — never expose a way to list this table. All access '
+  'ROOM_CODE_LENGTH chars) - never expose a way to list this table. All access '
   'goes through the security definer RPCs below, never direct table grants.';
 comment on column public.rooms.host_epoch is
   'Monotonic. Bumped by claim_host() via compare-and-swap; save_snapshot() only '
@@ -67,11 +67,11 @@ comment on column public.rooms.geometry_version is
   'Copied from GEOMETRY_VERSION (src/config.ts) at creation time. A mismatch on '
   'load means the puzzle-generation constants changed since this Room was '
   'created and existing (seed, rows, cols) would regenerate different shapes '
-  'than the saved snapshot describes — the client must refuse to render it.';
+  'than the saved snapshot describes - the client must refuse to render it.';
 
 -- Enable RLS with NO policies: deny-all for every direct-table role. Combined
 -- with the revokes below, anon/authenticated have zero direct access to this
--- table — the only door in is the RPCs.
+-- table - the only door in is the RPCs.
 alter table public.rooms enable row level security;
 alter table public.rooms force row level security;
 
@@ -79,7 +79,7 @@ revoke all on public.rooms from anon, authenticated, public;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Keep updated_at current on any row write (defence in depth — save_snapshot
+-- Keep updated_at current on any row write (defence in depth - save_snapshot
 -- also sets it explicitly, but this covers any future writer).
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -170,7 +170,7 @@ grant execute on function public.get_room(text) to anon;
 -- Succeeds only if the row's current host_epoch still equals p_expected_epoch,
 -- in which case it increments the epoch and returns the NEW value. If another
 -- claimant already won the race (or the caller's view of the epoch was
--- stale), zero rows match and this returns NULL — the caller must then join
+-- stale), zero rows match and this returns NULL - the caller must then join
 -- as a Guest instead.
 --
 -- Typical caller flow: get_room() to read the current host_epoch, then
@@ -204,7 +204,7 @@ grant execute on function public.claim_host(text, int) to anon;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- RPC: save_snapshot(p_code, p_epoch, p_snapshot, p_completed)
 --
--- Writes the Snapshot ONLY if the row's host_epoch still equals p_epoch —
+-- Writes the Snapshot ONLY if the row's host_epoch still equals p_epoch -
 -- the epoch-guarded write from ADR-0001. Returns true if it wrote, false if a
 -- newer Host has since claimed the room (the caller's epoch is stale) or the
 -- code doesn't exist. The app treats `false` as "you were deposed": tear down
@@ -244,19 +244,19 @@ grant execute on function public.save_snapshot(text, int, jsonb, boolean) to ano
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Storage: public bucket `puzzles`, objects at rooms/<code>/image
 --
--- Public read (anyone with the URL — same trust level as the Room code
+-- Public read (anyone with the URL - same trust level as the Room code
 -- itself) so any Player's browser can fetch the puzzle image directly from
 -- Storage's CDN without another RPC round-trip. Anon may only INSERT into
--- this bucket — no SELECT, UPDATE, or DELETE — since normalisation happens
+-- this bucket - no SELECT, UPDATE, or DELETE - since normalisation happens
 -- client-side before a Room row even exists; `create_room` doesn't gate the
 -- upload, so insert is intentionally as open as the Room code itself.
 --
--- !! NO anon SELECT POLICY ON storage.objects — THIS IS DELIBERATE. !!
+-- !! NO anon SELECT POLICY ON storage.objects - THIS IS DELIBERATE. !!
 -- Object paths are `rooms/<code>/image-<random>`, so the path requires the
 -- code (and, per object, a random suffix only `get_room()` can reveal) to
 -- construct. A select policy on this bucket would let anyone holding the
 -- bundled publishable key call storage.list('rooms') and enumerate every
--- Room code — reopening exactly the enumeration hole that ADR-0001 closes at
+-- Room code - reopening exactly the enumeration hole that ADR-0001 closes at
 -- the table level, and handing the attacker get_room()/save_snapshot()
 -- access to every board. Public-bucket reads go through
 -- /object/public/<bucket>/<path>, which does not consult RLS, so dropping
@@ -271,7 +271,7 @@ grant execute on function public.save_snapshot(text, int, jsonb, boolean) to ano
 -- work with INSERT+DELETE in principle, but Storage's DELETE endpoint
 -- silently no-ops for the publishable key in production testing (returns
 -- 200 with zero rows removed, even with a matching, verified-correct RLS
--- policy and table grant) — so this schema grants INSERT only, and the
+-- policy and table grant) - so this schema grants INSERT only, and the
 -- client sidesteps overwriting entirely. An abandoned upload attempt (user
 -- re-picks the image before clicking "Create puzzle") is harmless orphaned
 -- clutter, same tradeoff as CONTEXT.md's "Storage/Room hygiene" TODO.
@@ -282,7 +282,7 @@ values ('puzzles', 'puzzles', true)
 on conflict (id) do nothing;
 
 -- Explicitly remove policies an older run of this file (or a dashboard
--- click) may have created — this bucket is INSERT-only now.
+-- click) may have created - this bucket is INSERT-only now.
 drop policy if exists "puzzles: anon can read" on storage.objects;
 drop policy if exists "puzzles: anon can overwrite" on storage.objects;
 drop policy if exists "puzzles: anon can delete for re-upload" on storage.objects;
@@ -296,12 +296,12 @@ create policy "puzzles: anon can upload"
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- POST-V1 TODO — Room hygiene (see CONTEXT.md / plan "TODO (post-v1)")
+-- POST-V1 TODO - Room hygiene (see CONTEXT.md / plan "TODO (post-v1)")
 --
 -- Nothing is ever deleted today. updated_at is maintained (see trigger above)
 -- and each Room's image path is derivable from its code, so a purge of Rooms
 -- untouched for N days is a single statement when the free-tier storage
--- ceiling actually becomes a problem. NOT active — left commented out
+-- ceiling actually becomes a problem. NOT active - left commented out
 -- deliberately; deleting someone's in-progress puzzle is not a decision to
 -- make silently via a cron job without product sign-off on N.
 --

@@ -25,7 +25,7 @@ import { outlineToPath2D } from "../puzzle/textures";
 
 /**
  * Below this on-screen Cell size the cut stops being information and becomes
- * a mesh laid over the photo — 500 pieces in a 200px thumbnail is 8px cells,
+ * a mesh laid over the photo - 500 pieces in a 200px thumbnail is 8px cells,
  * which reads as hatching, not as a puzzle. Drawing nothing is the honest
  * result: the picture still shows, and the same preview enlarged draws the
  * cut again the moment the Cells are big enough to tell apart.

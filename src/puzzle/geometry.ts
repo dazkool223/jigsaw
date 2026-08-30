@@ -1,6 +1,6 @@
 /**
  * Assembles Pieces from the shared Edge set. This is the only place Piece
- * outlines are put together — always from four Edge *references* (never
+ * outlines are put together - always from four Edge *references* (never
  * freshly generated), oriented head-to-tail clockwise, which is what keeps
  * neighbouring Pieces sharing identical curves (see edges.ts).
  */
@@ -63,7 +63,7 @@ export function buildPuzzle(definition: PuzzleDefinition, imageW: number, imageH
         id: row * cols + col,
         row,
         col,
-        // Nominal (unjittered) Cell origin — the Lattice position. Vertex
+        // Nominal (unjittered) Cell origin - the Lattice position. Vertex
         // jitter must never move this.
         solved: { x: col * cellW, y: row * cellH },
         outline,

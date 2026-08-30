@@ -1,7 +1,7 @@
 /**
  * Hash routing (see plan "Stack": static hosting needs no rewrite rules, so
  * `/#/r/<roomCode>` addresses a Room rather than a real path). Pure and
- * unit-tested — no DOM dependency beyond `location.hash` / `hashchange`,
+ * unit-tested - no DOM dependency beyond `location.hash` / `hashchange`,
  * which are only touched by the thin wrappers at the bottom of this file.
  *
  * Parsing is defensive by design: anything that isn't exactly `#/r/<code>`
@@ -18,7 +18,7 @@ const ROOM_HASH_PATTERN = /^#\/r\/([^/]+)$/;
 
 /**
  * Parses a `location.hash`-shaped string (leading `#` included, as the
- * browser provides it) into a Route. Never throws — anything that doesn't
+ * browser provides it) into a Route. Never throws - anything that doesn't
  * cleanly match the Room pattern is Home.
  */
 export function parseHash(hash: string): Route {
@@ -32,7 +32,7 @@ export function parseHash(hash: string): Route {
   try {
     code = decodeURIComponent(raw);
   } catch {
-    // Malformed percent-encoding — treat as junk rather than crashing.
+    // Malformed percent-encoding - treat as junk rather than crashing.
     return HOME_ROUTE;
   }
   if (code.trim() === "") return HOME_ROUTE;
@@ -50,7 +50,7 @@ export function buildRoomHash(code: string): string {
   return `#/r/${encodeURIComponent(code)}`;
 }
 
-/** The full join URL for a Room, suitable for ShareLink — origin + path + hash. */
+/** The full join URL for a Room, suitable for ShareLink - origin + path + hash. */
 export function buildRoomUrl(code: string, origin: string = defaultOrigin()): string {
   return `${origin}${buildRoomHash(code)}`;
 }
@@ -59,7 +59,7 @@ function defaultOrigin(): string {
   return typeof location !== "undefined" ? `${location.origin}${location.pathname}` : "";
 }
 
-// ── Thin DOM wrappers — not exercised by routing.test.ts, kept minimal ──────
+// ── Thin DOM wrappers - not exercised by routing.test.ts, kept minimal ──────
 
 /** Reads the current route from `location.hash`. */
 export function getCurrentRoute(): Route {

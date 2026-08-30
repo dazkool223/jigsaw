@@ -3,7 +3,7 @@
  * Guest, fans messages out over `HostSignaling`, and enforces `MAX_PLAYERS`.
  *
  * This is a deep module on purpose: constructing a `HostNet` is enough to
- * start accepting Guest connections for a Room — callers only ever see the
+ * start accepting Guest connections for a Room - callers only ever see the
  * `Transport` surface (`send` / `onMessage` / `onPeerJoin` / `onPeerLeave` /
  * `close`), never the WebRTC or signaling plumbing underneath. That mirrors
  * `LoopbackTransport` (game/loopback.ts, M1's in-process stand-in), so
@@ -111,7 +111,7 @@ export class HostNet implements Transport {
   }
 
   private async handleOffer(guestId: PlayerId, sdp: RTCSessionDescriptionInit): Promise<void> {
-    if (this.guests.has(guestId)) return; // duplicate offer (e.g. retried broadcast) — ignore
+    if (this.guests.has(guestId)) return; // duplicate offer (e.g. retried broadcast) - ignore
 
     // Host counts as one of MAX_PLAYERS; the rest is Guest capacity.
     if (this.connectedCount >= MAX_PLAYERS - 1) {
