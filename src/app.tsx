@@ -18,7 +18,7 @@
  * state changes.
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Player, PlayerController, PlayerId, Puzzle } from "./types";
 import { getIdentity, renameIdentity } from "./supabase/identity";
 import { supabase } from "./supabase/client";
@@ -528,11 +528,14 @@ function RoomScreenController({ code }: { code: string }) {
 
   switch (state.kind) {
     case "loading":
-      return <CenteredMessage title="Loading…" />;
+      return <CenteredMessage title="Getting the box out" spinner />;
 
     case "not-found":
       return (
-        <CenteredMessage title="Room not found" body="This link doesn't point to a puzzle that exists.">
+        <CenteredMessage
+          title="No puzzle at this link"
+          body="This link doesn't point to a puzzle that exists. It may have been mistyped, or the puzzle was never created."
+        >
           <HomeButton />
         </CenteredMessage>
       );
@@ -540,8 +543,8 @@ function RoomScreenController({ code }: { code: string }) {
     case "geometry-mismatch":
       return (
         <CenteredMessage
-          title="This puzzle was made with an older version of the app"
-          body="The piece-cutting rules have changed since this room was created, so its saved board can't be safely regenerated."
+          title="This puzzle was cut by an older version"
+          body="The piece shapes have changed since this room was made, so the saved board can't be put back together safely. Start a fresh puzzle from the same photo to keep playing."
         >
           <HomeButton />
         </CenteredMessage>
@@ -549,8 +552,8 @@ function RoomScreenController({ code }: { code: string }) {
 
     case "load-error":
       return (
-        <CenteredMessage title="Couldn't load this room" body={state.message}>
-          <button type="button" style={styles.btnPrimary} onClick={() => controllerRef.current?.retryLoad()}>
+        <CenteredMessage title="Couldn't open this puzzle" body={state.message}>
+          <button type="button" className="btn" onClick={() => controllerRef.current?.retryLoad()}>
             Try again
           </button>
           <HomeButton />
@@ -558,7 +561,7 @@ function RoomScreenController({ code }: { code: string }) {
       );
 
     case "checking-presence":
-      return <CenteredMessage title="Checking for a host…" />;
+      return <CenteredMessage title="Looking for a host" spinner />;
 
     case "connecting":
       return (
@@ -606,12 +609,12 @@ function RoomScreenController({ code }: { code: string }) {
       );
       const roomUrl = buildRoomUrl(code);
       return (
-        <div style={styles.playingRoot}>
+        <div className="board-root">
           <BoardMount onMount={handleBoardMount} />
-          <div style={styles.chromeTopLeft}>
+          <div className="chrome chrome--left">
             <ShareLink url={roomUrl} />
           </div>
-          <div style={styles.chromeTopRight}>
+          <div className="chrome chrome--right">
             <PlayerList
               players={players}
               selfId={identity.id}
@@ -637,13 +640,31 @@ function RoomScreenController({ code }: { code: string }) {
   }
 }
 
-function CenteredMessage({ title, body, children }: { title: string; body?: string; children?: ReactNode }) {
+
+function CenteredMessage({
+  title,
+  body,
+  spinner,
+  children,
+}: {
+  title: string;
+  body?: string;
+  spinner?: boolean;
+  children?: ReactNode;
+}) {
   return (
-    <div style={styles.centeredPage}>
-      <div style={styles.centeredCard}>
-        <h2 style={styles.centeredTitle}>{title}</h2>
-        {body && <p style={styles.centeredBody}>{body}</p>}
-        {children && <div style={styles.centeredActions}>{children}</div>}
+    <div className="page">
+      <div className="card">
+        <div className="card__body">
+          {spinner && <div className="card__spinner" aria-hidden="true" />}
+          <h2 className="card__title">{title}</h2>
+          {body && <p className="card__text">{body}</p>}
+        </div>
+        {children && (
+          <div className="card__tray">
+            <div className="card__actions">{children}</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -651,19 +672,9 @@ function CenteredMessage({ title, body, children }: { title: string; body?: stri
 
 function HomeButton() {
   return (
-    <button type="button" style={styles.btnSecondary} onClick={navigateHome}>
+    <button type="button" className="btn btn--ghost" onClick={navigateHome}>
       Back to home
     </button>
-  );
-}
-
-function GlobalStyles() {
-  return (
-    <style>{`
-@keyframes jigsaw-spin {
-  to { transform: rotate(360deg); }
-}
-`}</style>
   );
 }
 
@@ -672,84 +683,9 @@ export function App() {
 
   useEffect(() => onRouteChange(setRoute), []);
 
-  return (
-    <>
-      <GlobalStyles />
-      {route.kind === "home" ? (
-        <HomeScreen onRoomCreated={(code) => navigateToRoom(code)} />
-      ) : (
-        <RoomScreenController key={route.code} code={route.code} />
-      )}
-    </>
+  return route.kind === "home" ? (
+    <HomeScreen onRoomCreated={(code) => navigateToRoom(code)} />
+  ) : (
+    <RoomScreenController key={route.code} code={route.code} />
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  playingRoot: {
-    position: "relative",
-    width: "100%",
-    height: "100%",
-  },
-  chromeTopLeft: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    zIndex: 10,
-    maxWidth: 320,
-  },
-  chromeTopRight: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 10,
-    background: "rgba(26, 29, 36, 0.85)",
-    border: "1px solid #3a3f4b",
-    borderRadius: 10,
-    padding: "10px 14px",
-  },
-  centeredPage: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
-    padding: 24,
-  },
-  centeredCard: {
-    maxWidth: 420,
-    textAlign: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 12,
-  },
-  centeredTitle: {
-    margin: 0,
-    fontSize: 20,
-  },
-  centeredBody: {
-    margin: 0,
-    color: "#c3c7d1",
-    fontSize: 14,
-  },
-  centeredActions: {
-    display: "flex",
-    gap: 10,
-    marginTop: 8,
-  },
-  btnPrimary: {
-    padding: "8px 18px",
-    borderRadius: 6,
-    border: "1px solid #4363d8",
-    background: "#4363d8",
-    color: "#fff",
-    fontWeight: 600,
-  },
-  btnSecondary: {
-    padding: "8px 18px",
-    borderRadius: 6,
-    border: "1px solid #3a3f4b",
-    background: "transparent",
-    color: "#e8eaf0",
-  },
-};

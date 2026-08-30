@@ -93,7 +93,10 @@ export class PuzzleRenderer {
       canvas,
       width: opts.width,
       height: opts.height,
-      background: opts.background ?? 0xe8e8e8,
+      // Table felt — matches --felt in ui/theme.css. The board is most of the
+      // pixels during play, so this is what makes the app read as one surface
+      // rather than a canvas sitting in a page.
+      background: opts.background ?? 0x1b3a2f,
       resizeTo: opts.resizeTo,
       antialias: opts.antialias ?? true,
       resolution: opts.resolution ?? (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
@@ -151,7 +154,12 @@ export class PuzzleRenderer {
 
   private drawBoardOutline(imageW: number, imageH: number): void {
     this.boardOutline.clear();
-    this.boardOutline.rect(0, 0, imageW, imageH).stroke({ width: 2, color: 0x000000, alpha: 0.15 });
+    // Where the finished picture goes: a chalked-out rectangle on the felt,
+    // light rather than dark so it reads as a marking on the table instead of
+    // a shadow under it.
+    this.boardOutline
+      .rect(0, 0, imageW, imageH)
+      .stroke({ width: 2, color: 0xded2bb, alpha: 0.22 });
   }
 
   /**

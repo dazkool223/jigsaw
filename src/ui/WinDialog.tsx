@@ -2,10 +2,12 @@
  * Completion (CONTEXT.md "Completion"): confetti, elapsed time, piece count,
  * and the share link so players can show off the finished puzzle. Confetti
  * fires once per mount via canvas-confetti (already a dependency — no new
- * package added).
+ * package added), and is skipped for players who ask for reduced motion.
+ *
+ * The stats read as the spec printed on the back of a finished box.
  */
 
-import { useEffect, type CSSProperties } from "react";
+import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { ShareLink } from "./ShareLink";
 
@@ -17,37 +19,41 @@ export type WinDialogProps = {
 
 export function WinDialog({ pieceCount, elapsedMs, shareUrl }: WinDialogProps) {
   useEffect(() => {
-    const duration = 2200;
-    const end = Date.now() + duration;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
+    const end = Date.now() + 2200;
+    let raf = 0;
+    // Chipboard, flag orange and gold rather than the library's default
+    // rainbow — the celebration should look like it belongs to this table.
+    const colors = ["#ded2bb", "#ece2d0", "#d6552f", "#e0a13b", "#8fbfa6"];
     const frame = () => {
-      void confetti({
-        particleCount: 4,
-        angle: 60,
-        spread: 60,
-        origin: { x: 0, y: 0.8 },
-      });
-      void confetti({
-        particleCount: 4,
-        angle: 120,
-        spread: 60,
-        origin: { x: 1, y: 0.8 },
-      });
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
+      void confetti({ particleCount: 4, angle: 60, spread: 60, origin: { x: 0, y: 0.8 }, colors });
+      void confetti({ particleCount: 4, angle: 120, spread: 60, origin: { x: 1, y: 0.8 }, colors });
+      if (Date.now() < end) raf = requestAnimationFrame(frame);
     };
     frame();
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
-    <div style={styles.backdrop}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>Puzzle complete!</h2>
-        <p style={styles.stat}>
-          {pieceCount} pieces &middot; {formatElapsed(elapsedMs)}
-        </p>
-        <div style={styles.shareRow}>
+    <div className="overlay overlay--win">
+      <div className="card">
+        <div className="card__body">
+          <h2 className="card__title">Solved</h2>
+          <p className="card__text">Every piece is home. Nicely done.</p>
+
+          <div className="stats">
+            <div className="stat">
+              <div className="stat__value">{pieceCount}</div>
+              <div className="stat__label">Pieces</div>
+            </div>
+            <div className="stat">
+              <div className="stat__value">{formatElapsed(elapsedMs)}</div>
+              <div className="stat__label">Time</div>
+            </div>
+          </div>
+        </div>
+        <div className="card__tray">
           <ShareLink url={shareUrl} />
         </div>
       </div>
@@ -63,40 +69,3 @@ function formatElapsed(ms: number): string {
   const pad = (n: number) => n.toString().padStart(2, "0");
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
 }
-
-const styles: Record<string, CSSProperties> = {
-  backdrop: {
-    position: "absolute",
-    inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "rgba(10, 11, 15, 0.72)",
-    zIndex: 30,
-  },
-  card: {
-    background: "#1e2129",
-    border: "1px solid #3a3f4b",
-    borderRadius: 12,
-    padding: "32px 36px",
-    maxWidth: 420,
-    textAlign: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 14,
-  },
-  title: {
-    margin: 0,
-    fontSize: 22,
-  },
-  stat: {
-    margin: 0,
-    color: "#c3c7d1",
-    fontSize: 14,
-  },
-  shareRow: {
-    width: "100%",
-    marginTop: 4,
-  },
-};

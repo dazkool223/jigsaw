@@ -1,9 +1,10 @@
 /**
  * The Room's join link: anyone with it can join, no signup. Copy-to-clipboard
- * with a transient "Copied" confirmation.
+ * with a transient confirmation. Rendered as a small tag resting on the table
+ * beside the board (see theme.css).
  */
 
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ShareLinkProps = {
   readonly url: string;
@@ -13,6 +14,8 @@ export function ShareLink({ url }: ShareLinkProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const handleCopy = async () => {
     try {
@@ -24,7 +27,7 @@ export function ShareLink({ url }: ShareLinkProps) {
         document.execCommand("copy");
       }
       setCopied(true);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard access denied/unavailable — the link is still selectable
@@ -34,40 +37,17 @@ export function ShareLink({ url }: ShareLinkProps) {
   };
 
   return (
-    <div style={styles.container}>
-      <input ref={inputRef} readOnly value={url} style={styles.input} onFocus={(e) => e.currentTarget.select()} />
-      <button type="button" onClick={() => void handleCopy()} style={styles.button}>
-        {copied ? "Copied!" : "Copy link"}
+    <div className="tag share">
+      {/* A readonly <input> can't ellipsize, so a long link gets sliced
+          mid-character. This shows the link as text that truncates cleanly;
+          the offscreen input exists only for the execCommand fallback path. */}
+      <span className="share__url" title={url}>
+        {url}
+      </span>
+      <input ref={inputRef} className="share__shadow" readOnly value={url} tabIndex={-1} aria-hidden="true" />
+      <button type="button" className="share__btn" onClick={() => void handleCopy()}>
+        {copied ? "Copied" : "Copy link"}
       </button>
     </div>
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  container: {
-    display: "flex",
-    gap: 8,
-    alignItems: "center",
-  },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    padding: "8px 10px",
-    borderRadius: 6,
-    border: "1px solid #3a3f4b",
-    background: "#12141a",
-    color: "#e8eaf0",
-    fontSize: 13,
-    fontFamily: "ui-monospace, monospace",
-  },
-  button: {
-    padding: "8px 14px",
-    borderRadius: 6,
-    border: "1px solid #4363d8",
-    background: "#4363d8",
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-  },
-};

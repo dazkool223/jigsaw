@@ -2,16 +2,14 @@
  * Driven by `TransportStatus` (see ../types.ts). Covers every state that
  * would otherwise leave the user staring at a silent hang:
  *
- *  - connecting: a simple, honest "Connecting..." — no fake progress bar.
+ *  - connecting: a simple, honest "Connecting" — no fake progress bar.
  *  - failed: the transport's own message verbatim (this is the 15s
  *    STUN-only timeout from config.ts's CONNECT_TIMEOUT_MS — see peer.ts).
- *    Copy is upfront that some mobile networks can't complete a STUN-only
+ *    Copy is upfront that some networks can't complete a STUN-only
  *    connection, with a Retry action.
  *  - roomFull: the transport's own message verbatim, no Retry (retrying
  *    won't change the player count).
  */
-
-import type { CSSProperties } from "react";
 
 // Deliberately NOT `Extract<TransportStatus, {state: "connecting"|"failed"|"roomFull"}>`:
 // types.ts's TransportStatus bundles "failed" and "roomFull" into one union
@@ -31,41 +29,49 @@ export type ConnectionOverlayProps = {
 
 export function ConnectionOverlay({ status, onRetry, onBackToHome }: ConnectionOverlayProps) {
   return (
-    <div style={styles.backdrop}>
-      <div style={styles.card}>
+    <div className="overlay">
+      <div className="card">
         {status.state === "connecting" && (
-          <>
-            <div style={styles.spinner} aria-hidden="true" />
-            <h2 style={styles.title}>Connecting…</h2>
-            <p style={styles.body}>Reaching the host peer-to-peer.</p>
-          </>
+          <div className="card__body">
+            <div className="card__spinner" aria-hidden="true" />
+            <h2 className="card__title">Pulling up a chair</h2>
+            <p className="card__text">Connecting you straight to the host.</p>
+          </div>
         )}
 
         {status.state === "failed" && (
           <>
-            <h2 style={styles.title}>Couldn't connect</h2>
-            <p style={styles.body}>{status.message}</p>
-            <p style={styles.hint}>
-              Some mobile and corporate networks block direct peer-to-peer connections entirely.
-              Trying from a different network (or Wi-Fi instead of cellular) often fixes this.
-            </p>
-            <div style={styles.actions}>
-              <button type="button" style={styles.primaryButton} onClick={onRetry}>
-                Retry
-              </button>
-              <button type="button" style={styles.secondaryButton} onClick={onBackToHome}>
-                Back to home
-              </button>
+            <div className="card__body">
+              {/* Title names the situation, body is the transport's own words,
+                  hint adds only the fix — peer.ts already states the cause, so
+                  repeating "mobile networks" here would say it three times. */}
+              <h2 className="card__title">Couldn't join this puzzle</h2>
+              <p className="card__text">{status.message}</p>
+              <p className="card__hint">
+                Switching to Wi-Fi, or trying from a different network, usually gets through.
+              </p>
+            </div>
+            <div className="card__tray">
+              <div className="card__actions">
+                <button type="button" className="btn" onClick={onRetry}>
+                  Try again
+                </button>
+                <button type="button" className="btn btn--ghost" onClick={onBackToHome}>
+                  Back to home
+                </button>
+              </div>
             </div>
           </>
         )}
 
         {status.state === "roomFull" && (
           <>
-            <h2 style={styles.title}>Room is full</h2>
-            <p style={styles.body}>{status.message}</p>
-            <div style={styles.actions}>
-              <button type="button" style={styles.secondaryButton} onClick={onBackToHome}>
+            <div className="card__body">
+              <h2 className="card__title">This table is full</h2>
+              <p className="card__text">{status.message}</p>
+            </div>
+            <div className="card__tray">
+              <button type="button" className="btn btn--ghost" onClick={onBackToHome}>
                 Back to home
               </button>
             </div>
@@ -75,69 +81,3 @@ export function ConnectionOverlay({ status, onRetry, onBackToHome }: ConnectionO
     </div>
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  backdrop: {
-    position: "absolute",
-    inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "rgba(10, 11, 15, 0.72)",
-    zIndex: 20,
-  },
-  card: {
-    background: "#1e2129",
-    border: "1px solid #3a3f4b",
-    borderRadius: 12,
-    padding: "28px 32px",
-    maxWidth: 380,
-    textAlign: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 10,
-  },
-  spinner: {
-    width: 28,
-    height: 28,
-    borderRadius: "50%",
-    border: "3px solid #3a3f4b",
-    borderTopColor: "#4363d8",
-    animation: "jigsaw-spin 0.8s linear infinite",
-  },
-  title: {
-    margin: 0,
-    fontSize: 18,
-  },
-  body: {
-    margin: 0,
-    color: "#c3c7d1",
-    fontSize: 14,
-  },
-  hint: {
-    margin: 0,
-    color: "#9aa0ad",
-    fontSize: 12,
-  },
-  actions: {
-    display: "flex",
-    gap: 10,
-    marginTop: 8,
-  },
-  primaryButton: {
-    padding: "8px 18px",
-    borderRadius: 6,
-    border: "1px solid #4363d8",
-    background: "#4363d8",
-    color: "#fff",
-    fontWeight: 600,
-  },
-  secondaryButton: {
-    padding: "8px 18px",
-    borderRadius: 6,
-    border: "1px solid #3a3f4b",
-    background: "transparent",
-    color: "#e8eaf0",
-  },
-};

@@ -6,7 +6,7 @@
  * shown against config.ts's MAX_PLAYERS — never hard-coded.
  */
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import type { Player, PlayerId } from "../types";
 import { MAX_PLAYERS } from "../config";
 
@@ -18,16 +18,21 @@ export type PlayerListProps = {
 
 export function PlayerList({ players, selfId, onRename }: PlayerListProps) {
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <span>Players</span>
-        <span style={styles.capacity}>
-          {players.length} / {MAX_PLAYERS}
+    <div className="tag players">
+      <div className="players__head">
+        <span className="stamp">At the table</span>
+        <span className="players__count">
+          {players.length}/{MAX_PLAYERS}
         </span>
       </div>
-      <ul style={styles.list}>
+      <ul className="players__list">
         {players.map((player) => (
-          <PlayerRow key={player.id} player={player} isSelf={player.id === selfId} onRename={onRename} />
+          <PlayerRow
+            key={player.id}
+            player={player}
+            isSelf={player.id === selfId}
+            onRename={onRename}
+          />
         ))}
       </ul>
     </div>
@@ -57,12 +62,18 @@ function PlayerRow({
   };
 
   return (
-    <li style={styles.row}>
-      <span style={{ ...styles.dot, background: player.color }} aria-hidden="true" />
+    <li className="players__row">
+      <span
+        className="players__dot"
+        style={{ background: player.color }}
+        aria-hidden="true"
+      />
       {isSelf && editing ? (
         <input
           autoFocus
+          className="players__input"
           value={draft}
+          aria-label="Your name"
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
@@ -72,75 +83,22 @@ function PlayerRow({
               setEditing(false);
             }
           }}
-          style={styles.nameInput}
         />
-      ) : (
-        <span
-          style={{ ...styles.name, cursor: isSelf ? "text" : "default" }}
+      ) : isSelf ? (
+        <button
+          type="button"
+          className="players__rename"
+          title="Rename yourself"
           onClick={() => {
-            if (isSelf) {
-              setDraft(player.name);
-              setEditing(true);
-            }
+            setDraft(player.name);
+            setEditing(true);
           }}
-          title={isSelf ? "Click to rename" : undefined}
         >
-          {player.name}
-          {isSelf ? " (you)" : ""}
-        </span>
+          {player.name} <span className="players__you">(you)</span>
+        </button>
+      ) : (
+        <span className="players__name">{player.name}</span>
       )}
     </li>
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    minWidth: 180,
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: "#9aa0ad",
-  },
-  capacity: {
-    fontVariantNumeric: "tabular-nums",
-  },
-  list: {
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  row: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: "50%",
-    flexShrink: 0,
-  },
-  name: {
-    fontSize: 14,
-    color: "#e8eaf0",
-  },
-  nameInput: {
-    fontSize: 14,
-    background: "#12141a",
-    border: "1px solid #4363d8",
-    borderRadius: 4,
-    color: "#e8eaf0",
-    padding: "2px 6px",
-    minWidth: 0,
-  },
-};

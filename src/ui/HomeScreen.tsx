@@ -1,11 +1,14 @@
 /**
- * Create-a-puzzle screen: pick an image, pick an approximate piece count,
- * then create the Room and hand off navigation to the caller. No signup, no
- * accounts — the Room code (generated once up front) is both the upload key
+ * Create-a-puzzle screen: pick a photo, pick a piece count, cut it. No signup,
+ * no accounts — the Room code (generated once up front) is both the upload key
  * and the eventual join credential (ADR-0001).
+ *
+ * Laid out as a puzzle box lid (see theme.css): a real box lid carries exactly
+ * the two things this form collects — the picture and the piece count — so the
+ * metaphor encodes the information architecture rather than decorating it.
  */
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { PIECE_PRESETS } from "../config";
 import { createRoom, generateRoomCode } from "../supabase/rooms";
 import { fitGrid } from "../puzzle/layout";
@@ -22,6 +25,11 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
   const [uploaded, setUploaded] = useState<UploadedImage | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The honest piece count: fitGrid rounds to keep Cells square, so "~500"
+  // on this particular photo might really be 494 in a 26 x 19 grid. Printed
+  // like a box-back spec once we know the photo's aspect.
+  const fitted = uploaded ? fitGrid(uploaded.width, uploaded.height, pieceTarget) : null;
 
   const handleCreate = async () => {
     if (!uploaded) return;
@@ -44,95 +52,51 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
       }
       onRoomCreated(code);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't create the room.");
+      setError(err instanceof Error ? err.message : "The puzzle couldn't be created. Try again.");
       setCreating(false);
     }
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Jigsaw</h1>
-        <p style={styles.tagline}>
-          Upload a photo, pick a piece count, and start solving together. Anyone with the link can
-          join — no signup.
-        </p>
-
-        <section style={styles.section}>
-          <label style={styles.label}>Image</label>
+    <div className="page">
+      <div style={{ width: "100%", maxWidth: 470 }}>
+        <div className="lid lid--home">
           <UploadForm code={code} uploaded={uploaded} onUploaded={setUploaded} />
-        </section>
 
-        <section style={styles.section}>
-          <label style={styles.label}>Piece count</label>
-          <PieceCountPicker value={pieceTarget} onChange={setPieceTarget} disabled={creating} />
-        </section>
+          <h1 className="wordmark">Jigsaw</h1>
+          <p className="tagline">
+            Cut a photo into a puzzle, send the link, and solve it together — from anywhere,
+            with no accounts.
+          </p>
 
-        {error && <p style={styles.error}>{error}</p>}
+          <div className="rule" />
 
-        <button
-          type="button"
-          style={{ ...styles.createButton, opacity: uploaded && !creating ? 1 : 0.5 }}
-          disabled={!uploaded || creating}
-          onClick={() => void handleCreate()}
-        >
-          {creating ? "Creating…" : "Create puzzle"}
-        </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <span className="stamp">Pieces</span>
+            <PieceCountPicker value={pieceTarget} onChange={setPieceTarget} disabled={creating} />
+            <p className="spec">
+              {fitted
+                ? `${fitted.rows * fitted.cols} pieces · ${fitted.cols} × ${fitted.rows} grid`
+                : "Exact count is set by your photo's shape"}
+            </p>
+          </div>
+
+          {error && <p className="note">{error}</p>}
+        </div>
+
+        <div className="cta-row">
+          <button
+            type="button"
+            className="piece-btn"
+            disabled={!uploaded || creating}
+            onClick={() => void handleCreate()}
+          >
+            {/* One name for the action the whole way through — the empty well
+                and the disabled state already say a photo is needed. */}
+            <span className="piece-btn__label">{creating ? "Cutting…" : "Cut the puzzle"}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, CSSProperties> = {
-  page: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
-    padding: 24,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 480,
-    display: "flex",
-    flexDirection: "column",
-    gap: 20,
-  },
-  title: {
-    margin: 0,
-    fontSize: 32,
-    fontWeight: 700,
-  },
-  tagline: {
-    margin: 0,
-    color: "#9aa0ad",
-    fontSize: 14,
-    lineHeight: 1.5,
-  },
-  section: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  label: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: "#9aa0ad",
-  },
-  error: {
-    margin: 0,
-    color: "#e6194b",
-    fontSize: 13,
-  },
-  createButton: {
-    padding: "12px 20px",
-    borderRadius: 8,
-    border: "1px solid #4363d8",
-    background: "#4363d8",
-    color: "#fff",
-    fontWeight: 600,
-    fontSize: 15,
-  },
-};
