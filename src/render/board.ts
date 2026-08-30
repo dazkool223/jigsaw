@@ -1,13 +1,13 @@
 /**
  * Composition root: wires the pure `render/` modules (PuzzleRenderer,
  * Interactions, CursorLayer, viewport) to a live `PlayerController` (Host or
- * Client — see ../types.ts) and a DOM container. This is the seam app.tsx's
+ * Client - see ../types.ts) and a DOM container. This is the seam app.tsx's
  * `handleBoardMount` TODO pointed at: nowhere else connects rendering to
  * game state, so this is the only module in `render/` allowed to import from
  * `../game`.
  *
  * `mountBoard` bakes the puzzle's texture atlases from the room image (once,
- * off the drag path — see ADR-0002 / CONTEXT.md "Image normalisation"), then
+ * off the drag path - see ADR-0002 / CONTEXT.md "Image normalisation"), then
  * keeps the scene in sync with `controller.onChange` for as long as the
  * returned cleanup function hasn't been called.
  */
@@ -28,7 +28,7 @@ export type MountBoardOptions = {
 };
 
 /** Screen-space breathing room around the puzzle on initial fit. Not a config.ts
- * constant — a UI layout judgement call, not part of puzzle/session identity. */
+ * constant - a UI layout judgement call, not part of puzzle/session identity. */
 const VIEWPORT_PADDING_PX = 32;
 
 /** Mounts the full interactive board into `container`. Returns a cleanup function. */
@@ -55,7 +55,7 @@ export function mountBoard(opts: MountBoardOptions): () => void {
       image = await loadImage(imageUrl);
     } catch {
       renderer.destroy();
-      return; // Room load already validated the image (app.tsx's loadImageDimensions); a failure here is rare and non-fatal — the board just stays blank.
+      return; // Room load already validated the image (app.tsx's loadImageDimensions); a failure here is rare and non-fatal - the board just stays blank.
     }
     if (disposed) {
       renderer.destroy();
@@ -110,7 +110,7 @@ export function mountBoard(opts: MountBoardOptions): () => void {
       for (const [playerId, world] of controller.getCursors()) {
         if (playerId === localPlayerId) continue;
         const player = players.get(playerId);
-        if (!player) continue; // seen a cursor before the roster caught up — skip this tick, next PLAYER_LIST fixes it
+        if (!player) continue; // seen a cursor before the roster caught up - skip this tick, next PLAYER_LIST fixes it
         cursorStates.push({ playerId, name: player.name, color: player.color, world });
       }
       cursorLayer.sync(cursorStates);

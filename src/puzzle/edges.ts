@@ -1,5 +1,5 @@
 /**
- * Shared Edge generation — THE interlock invariant lives here.
+ * Shared Edge generation - THE interlock invariant lives here.
  *
  * A lattice of vertices V(r,c), r in [0,rows], c in [0,cols], is built first.
  * Interior vertices are jittered for the "hand-cut" look; boundary vertices
@@ -10,7 +10,7 @@
  *   - vertical   v(r,c), r in [0,rows-1], c in [0,cols]: V(r,c) -> V(r+1,c)
  *
  * geometry.ts assembles each Piece's outline from four references into this
- * shared set — it never generates its own curves. Two neighbouring Pieces
+ * shared set - it never generates its own curves. Two neighbouring Pieces
  * therefore always reference the identical curve, one of them via
  * `reverseEdge`, which is what makes them interlock instead of merely abut.
  */
@@ -66,7 +66,7 @@ function buildVertices(grid: Grid, seed: number): Point[][] {
 // Straight (boundary) edges
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** A single straight segment — collinear control points, no Tab. */
+/** A single straight segment - collinear control points, no Tab. */
 function straightEdge(from: Point, to: Point): Edge {
   const c1: Point = { x: from.x + (to.x - from.x) / 3, y: from.y + (to.y - from.y) / 3 };
   const c2: Point = { x: from.x + (to.x - from.x) * (2 / 3), y: from.y + (to.y - from.y) * (2 / 3) };
@@ -80,7 +80,7 @@ function straightEdge(from: Point, to: Point): Edge {
 /**
  * Build a Tab curve between `from` and `to`, in the edge's own frame (unit
  * vector along the edge, and its perpendicular for Tab height) so it works at
- * any edge angle — jittered vertices mean interior edges are rarely axis
+ * any edge angle - jittered vertices mean interior edges are rarely axis
  * aligned.
  *
  * Local coordinates: u along the edge (0 at `from`, L at `to`), v
@@ -89,7 +89,7 @@ function straightEdge(from: Point, to: Point): Edge {
  *   shoulder -> neck-in (pull toward the narrow neck) -> bulb cap (wide) ->
  *   neck-out -> shoulder.
  * The neck-in/out segments pull their control points toward the neck's
- * (narrower) x-position while sweeping to the bulb's (wider) endpoint — the
+ * (narrower) x-position while sweeping to the bulb's (wider) endpoint - the
  * u-coordinate briefly reverses direction as v approaches its max, which is
  * what makes the bulb overhang the neck instead of just being a bump.
  */
@@ -154,7 +154,7 @@ function tabbedEdge(from: Point, to: Point, minCellDim: number, rand: () => numb
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// reverseEdge — same curve, traversed backwards. This is what lets two
+// reverseEdge - same curve, traversed backwards. This is what lets two
 // Pieces share one generated curve and still each draw it head-to-tail.
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -6,7 +6,7 @@ function makeGrid(rows: number, cols: number, imageW = 800, imageH = 600): Grid 
   return { rows, cols, cellW: imageW / cols, cellH: imageH / rows, imageW, imageH };
 }
 
-/** Cross product magnitude of (to-from) x (p-from) — 0 iff p is collinear with from->to. */
+/** Cross product magnitude of (to-from) x (p-from) - 0 iff p is collinear with from->to. */
 function collinearity(from: Point, to: Point, p: Point): number {
   return (to.x - from.x) * (p.y - from.y) - (to.y - from.y) * (p.x - from.x);
 }

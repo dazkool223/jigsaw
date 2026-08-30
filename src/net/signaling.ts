@@ -8,11 +8,11 @@
  *
  * Realtime **presence** is used only as a cheap "is a Host online" hint for
  * the UI (e.g. show "Resume puzzle" vs "Join"). It is NEVER authoritative
- * for who the Host is — the Host Epoch column on the `rooms` row is (see
+ * for who the Host is - the Host Epoch column on the `rooms` row is (see
  * CONTEXT.md, ADR-0001). Do not branch game logic on presence state.
  *
  * The Supabase client is injected rather than imported, so this module has
- * no hard dependency on `src/supabase/` (owned by another agent) — it only
+ * no hard dependency on `src/supabase/` (owned by another agent) - it only
  * depends on the small structural shape below, which the real
  * `@supabase/supabase-js` client satisfies.
  */
@@ -53,7 +53,7 @@ export interface SupabaseClientLike {
 }
 
 // ── Wire shapes exchanged over the signaling channel ────────────────────────
-// (Distinct from protocol.ts: these never touch the WebRTC data channels —
+// (Distinct from protocol.ts: these never touch the WebRTC data channels -
 // they only ever travel over Supabase Realtime, before a P2P link exists.)
 
 type OfferPayload = { readonly from: PlayerId; readonly sdp: RTCSessionDescriptionInit };
@@ -89,7 +89,7 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.length > 0;
 }
 
-/** RTCSessionDescriptionInit / RTCIceCandidateInit are opaque here — just require an object. */
+/** RTCSessionDescriptionInit / RTCIceCandidateInit are opaque here - just require an object. */
 function isPlainObject(v: unknown): boolean {
   return isRecord(v);
 }
@@ -169,7 +169,7 @@ export class HostSignaling {
         }
       })
       .subscribe();
-    // Presence marks this Host as online — a hint for Guests deciding
+    // Presence marks this Host as online - a hint for Guests deciding
     // whether to show "Join" vs "Resume puzzle". Not authoritative.
     void this.channel.track({ role: "host", playerId: this.selfId });
   }
@@ -184,7 +184,7 @@ export class HostSignaling {
     void this.channel.send({ type: "broadcast", event: EVENT.iceFromHost, payload });
   }
 
-  /** Reject a Guest before (or instead of) completing a WebRTC handshake — see hostNet.ts MAX_PLAYERS. */
+  /** Reject a Guest before (or instead of) completing a WebRTC handshake - see hostNet.ts MAX_PLAYERS. */
   sendRoomFull(to: PlayerId): void {
     const payload: RoomFullPayload = { to };
     void this.channel.send({ type: "broadcast", event: EVENT.roomFull, payload });

@@ -2,7 +2,7 @@
  * Renders other players' cursors in world space: a small colour-tinted
  * pointer plus a name label, lerped by REMOTE_LERP_MS so remote motion looks
  * smooth despite arriving in bursts over the network. Never intercepts
- * pointer events — `eventMode` is "none" throughout, so the board's own
+ * pointer events - `eventMode` is "none" throughout, so the board's own
  * hit-testing (interactions.ts) is never shadowed by a cursor glyph.
  *
  * Pure Pixi presentation: this module knows nothing about Players, Peers or
@@ -78,7 +78,7 @@ export class CursorLayer {
     app.ticker.add(this.tickerListener);
   }
 
-  /** Reconciles displayed cursors to `states` — one entry per online peer (never the local player). */
+  /** Reconciles displayed cursors to `states` - one entry per online peer (never the local player). */
   sync(states: readonly CursorState[]): void {
     const seen = new Set<PlayerId>();
 

@@ -1,5 +1,5 @@
 /**
- * Screen orchestration (plan "Project structure": "main.tsx, app.tsx — Home vs
+ * Screen orchestration (plan "Project structure": "main.tsx, app.tsx - Home vs
  * Room screens"). Two responsibilities live here:
  *
  *  1. Hash routing between Home and a Room (see ui/routing.ts).
@@ -9,11 +9,11 @@
  *     Guest or offer an explicit "Resume puzzle" claim, and react to being
  *     deposed.
  *
- * `RoomState` below is the explicit state machine the brief asks for — every
+ * `RoomState` below is the explicit state machine the brief asks for - every
  * screen the user can be looking at while viewing a Room is one named
  * variant, never an implicit combination of booleans. `RoomSessionController`
  * is the imperative engine behind it: it owns the live Transport / Host /
- * Client / SnapshotScheduler objects (none of which are React state — they
+ * Client / SnapshotScheduler objects (none of which are React state - they
  * have their own lifecycles) and calls `setState` whenever the *visible*
  * state changes.
  */
@@ -36,6 +36,7 @@ import { mountBoard } from "./render/board";
 
 import { HomeScreen } from "./ui/HomeScreen";
 import { BoardMount } from "./ui/BoardMount";
+import { BoxArt } from "./ui/BoxArt";
 import { PlayerList } from "./ui/PlayerList";
 import { ShareLink } from "./ui/ShareLink";
 import { ConnectionOverlay } from "./ui/ConnectionOverlay";
@@ -64,7 +65,7 @@ function loadImageDimensions(url: string): Promise<{ width: number; height: numb
   });
 }
 
-/** scatterOffsets() returns one Point per Piece in row-major id order — see layout.ts. */
+/** scatterOffsets() returns one Point per Piece in row-major id order - see layout.ts. */
 function toScatterRecord(points: readonly { x: number; y: number }[]): Record<number, { x: number; y: number }> {
   const rec: Record<number, { x: number; y: number }> = {};
   points.forEach((p, i) => {
@@ -92,7 +93,7 @@ type PuzzleSession = {
 };
 
 /**
- * Every screen a Room can show. Named states, not booleans — see module
+ * Every screen a Room can show. Named states, not booleans - see module
  * doc comment. `session` (the loaded Room row + regenerated Puzzle
  * geometry) is threaded through from "checking-presence" onward since every
  * later screen either needs it directly or needs to keep it alive across a
@@ -137,12 +138,12 @@ type RoomState =
  * online and offering ResumeHostScreen. Presence sync normally arrives
  * within a second of subscribing; this is a generous fallback so a slow
  * network degrades to "show the resume screen" rather than hanging forever.
- * Not a config.ts constant — it's a UI-only judgement call, not part of
+ * Not a config.ts constant - it's a UI-only judgement call, not part of
  * puzzle/session identity.
  */
 const PRESENCE_WAIT_MS = 4000;
 
-/** How often the Host's own chrome (PlayerList, Completion, Snapshot dirty-check) polls Host — see report: Host has no onChange. */
+/** How often the Host's own chrome (PlayerList, Completion, Snapshot dirty-check) polls Host - see report: Host has no onChange. */
 const HOST_POLL_MS = 1000;
 
 /**
@@ -180,7 +181,7 @@ class RoomSessionController {
     void this.loadRoom();
   }
 
-  /** For BoardMount's onMount (see handleBoardMount below) — read fresh at mount time, not captured in a stale render closure. */
+  /** For BoardMount's onMount (see handleBoardMount below) - read fresh at mount time, not captured in a stale render closure. */
   getSession(): PuzzleSession | undefined {
     return this.session;
   }
@@ -197,7 +198,7 @@ class RoomSessionController {
     // Leaving the Room (navigating home to start another puzzle, or plain
     // unmount) would otherwise drop up to SNAPSHOT_DEBOUNCE_MS of moves on
     // the floor: teardownHost only cancels the pending timer. Fire the write
-    // first — it serialises synchronously, so the request is already on the
+    // first - it serialises synchronously, so the request is already on the
     // wire before the scheduler goes away. Deliberately not in teardownHost
     // itself, which also runs on the deposed path where our epoch is stale
     // and the write is guaranteed to be rejected.
@@ -224,7 +225,7 @@ class RoomSessionController {
         return;
       }
       if (result.outcome === "lost") {
-        // Someone else's claim won the race — a Host now exists; join them.
+        // Someone else's claim won the race - a Host now exists; join them.
         this.beginGuestFlow();
         return;
       }
@@ -232,7 +233,7 @@ class RoomSessionController {
     })();
   }
 
-  /** DeposedOverlay's single Rejoin button — joins the new Host, or lands back on Resume if they've also left. */
+  /** DeposedOverlay's single Rejoin button - joins the new Host, or lands back on Resume if they've also left. */
   rejoin(): void {
     this.beginGuestFlow();
   }
@@ -518,7 +519,7 @@ function RoomScreenController({ code }: { code: string }) {
   const handleBoardMount = useCallback((el: HTMLDivElement) => {
     // Read the live controller/session off the ref rather than the `state`
     // in scope: this callback has a stable identity (empty deps, so
-    // BoardMount mounts it once per "playing" entry — see BoardMount's doc
+    // BoardMount mounts it once per "playing" entry - see BoardMount's doc
     // comment), so a `state` closed over here would be whatever it was on
     // the render that created the callback, not the "playing" one that
     // actually triggers the mount.
@@ -622,10 +623,13 @@ function RoomScreenController({ code }: { code: string }) {
           <div className="chrome chrome--left">
             <ShareLink url={roomUrl} />
             {/* Progress is saved on the way out (see dispose), and this Room
-                keeps its link — so this is "start another one", not "quit". */}
+                keeps its link - so this is "start another one", not "quit". */}
             <button type="button" className="tag tag--btn" onClick={navigateHome}>
               Start a new puzzle
             </button>
+            {/* The lid propped up beside the table - the finished picture to
+                check pieces against. */}
+            <BoxArt puzzle={state.session.puzzle} imageUrl={state.session.imageUrl} />
           </div>
           <div className="chrome chrome--right">
             <PlayerList

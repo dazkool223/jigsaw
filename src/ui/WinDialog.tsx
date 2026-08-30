@@ -1,7 +1,7 @@
 /**
  * Completion (CONTEXT.md "Completion"): confetti, elapsed time, piece count,
  * and the share link so players can show off the finished puzzle. Confetti
- * fires once per mount via canvas-confetti (already a dependency — no new
+ * fires once per mount via canvas-confetti (already a dependency - no new
  * package added), and is skipped for players who ask for reduced motion.
  *
  * The stats read as the spec printed on the back of a finished box.
@@ -24,7 +24,7 @@ export function WinDialog({ pieceCount, elapsedMs, shareUrl }: WinDialogProps) {
     const end = Date.now() + 2200;
     let raf = 0;
     // Chipboard, flag orange and gold rather than the library's default
-    // rainbow — the celebration should look like it belongs to this table.
+    // rainbow - the celebration should look like it belongs to this table.
     const colors = ["#ded2bb", "#ece2d0", "#d6552f", "#e0a13b", "#8fbfa6"];
     const frame = () => {
       void confetti({ particleCount: 4, angle: 60, spread: 60, origin: { x: 0, y: 0.8 }, colors });

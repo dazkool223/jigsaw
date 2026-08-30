@@ -3,7 +3,7 @@
  * agree with `net/protocol.ts`. Every message either side sends over the
  * loopback Transport is intercepted here and must round-trip through
  * `JSON.parse(JSON.stringify(msg))` (simulating the wire) and then
- * `parseMessage(...)` without returning null — i.e. it must be a
+ * `parseMessage(...)` without returning null - i.e. it must be a
  * well-formed member of `ProtocolMessage`. Before the reconciliation this
  * task performs, `host.ts`/`client.ts` sent their own local shapes and this
  * test would have failed on the first message.
@@ -18,8 +18,8 @@ import { LoopbackHub } from "./loopback";
 import { parseMessage } from "../net/protocol";
 
 // ── Fixture: a tiny 2x2 puzzle, deliberately independent of src/puzzle ──
-// scatterOffsets defaults every Group to offset (0,0) — its own Lattice
-// position — so a single grab+drop at (0,0) cascades a full Merge to one
+// scatterOffsets defaults every Group to offset (0,0) - its own Lattice
+// position - so a single grab+drop at (0,0) cascades a full Merge to one
 // Group in one resolveDrop call, letting one small scenario exercise SNAP
 // and COMPLETE without needing large/careful drag math.
 
@@ -166,7 +166,7 @@ describe("Host <-> Client wire traffic all round-trips through parseMessage", ()
 
     // Peer leave -> PLAYER_LIST re-broadcast. Client.close() only unsubscribes
     // its own message handler (transport lifecycle is the caller's
-    // responsibility, same as in the original design) — close the transport
+    // responsibility, same as in the original design) - close the transport
     // itself to simulate a real disconnect and trigger the Host's onPeerLeave.
     bob.close();
     bobTransport.close();

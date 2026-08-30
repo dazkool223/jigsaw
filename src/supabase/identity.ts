@@ -2,12 +2,12 @@
  * Per-device Player identity (see CONTEXT.md "Player", plan "Players").
  *
  * Auto-assigned adjective-animal name + a cursor colour from a distinct
- * palette on first use, persisted in localStorage (NOT sessionStorage —
+ * palette on first use, persisted in localStorage (NOT sessionStorage -
  * identity should survive across days, not just a tab's lifetime) so it
  * carries across visits on the same device. Renaming is allowed and persists.
  *
  * Identity is COSMETIC ONLY (CONTEXT.md is explicit: "no state of consequence
- * is keyed to it") — nothing here needs to be secure or globally unique, only
+ * is keyed to it") - nothing here needs to be secure or globally unique, only
  * stable per device and pleasant to look at.
  *
  * localStorage can be unavailable or throw (private/incognito mode, quota
@@ -21,7 +21,7 @@ import type { Player, PlayerId } from "../types";
 const STORAGE_KEY = "jigsaw:identity";
 
 // A visually distinct, colour-blind-conscious palette (based on Paul Tol's/
-// Sasha Trubetskoy's distinct-colours work) — no two entries should read as
+// Sasha Trubetskoy's distinct-colours work) - no two entries should read as
 // "the same cursor colour" at a glance.
 export const CURSOR_COLORS: readonly string[] = [
   "#e6194b", // red
@@ -127,11 +127,11 @@ function isPlayer(value: unknown): value is Player {
   return typeof v.id === "string" && typeof v.name === "string" && typeof v.color === "string";
 }
 
-/** The minimal storage shape this module needs — real localStorage satisfies it. */
+/** The minimal storage shape this module needs - real localStorage satisfies it. */
 export type IdentityStorage = Pick<Storage, "getItem" | "setItem">;
 
 /**
- * Probes whether `storage` is actually usable (present AND not throwing —
+ * Probes whether `storage` is actually usable (present AND not throwing -
  * Safari private mode historically exposed localStorage but threw on any
  * write, and some environments throw just on access).
  */

@@ -30,7 +30,7 @@ export function ShareLink({ url }: ShareLinkProps) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard access denied/unavailable — the link is still selectable
+      // Clipboard access denied/unavailable - the link is still selectable
       // and visible, so the user can copy it manually.
       inputRef.current?.select();
     }

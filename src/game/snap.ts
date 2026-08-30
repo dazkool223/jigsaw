@@ -1,11 +1,11 @@
 /**
- * Pure snapping/merging decisions. No I/O — resolveDrop is the whole
+ * Pure snapping/merging decisions. No I/O - resolveDrop is the whole
  * Host-side drop resolution and is called synchronously from host.ts.
  *
  * Relies entirely on the KEY INVARIANT documented on `Group` in ../types.ts:
  * a Piece's world position is always `piece.solved + group.offset`, so two
  * Groups may merge iff they hold orthogonally-adjacent Pieces AND their
- * offsets agree within tolerance — no per-Piece maths needed anywhere here.
+ * offsets agree within tolerance - no per-Piece maths needed anywhere here.
  */
 
 import type { GameState, Grid, GroupId, Piece, Puzzle } from "../types";
@@ -37,7 +37,7 @@ const ORTHOGONAL_STEPS: readonly (readonly [number, number])[] = [
  *    `SNAP_TOLERANCE * min(cellW, cellH)`.
  *
  * CRITICAL RULE: a Group currently HELD by any player is never a merge
- * target — skip it. The connection is picked up later when the holder drops
+ * target - skip it. The connection is picked up later when the holder drops
  * (see CONTEXT.md "Merge"). This is what stops Pieces teleporting into
  * another player's hand mid-drag.
  */
@@ -86,7 +86,7 @@ export function findMerges(state: GameState, puzzle: Puzzle, groupId: GroupId): 
 
 /**
  * If a Group's offset is within tolerance of (0, 0), sets it EXACTLY to
- * (0, 0) — "Lattice snap". A no-op otherwise, or if the Group doesn't exist.
+ * (0, 0) - "Lattice snap". A no-op otherwise, or if the Group doesn't exist.
  */
 export function snapToLattice(state: GameState, groupId: GroupId, grid: Grid): GameState {
   const group = state.groups[groupId];
@@ -109,14 +109,14 @@ export type DropResolution = {
  * The whole Host-side drop resolution, atomic within this one call:
  *   1. Lattice-snap check on the dropped Group.
  *   2. Find and absorb merges (smaller Group absorbed into larger; the
- *      larger keeps its id and offset — see mergeGroups).
+ *      larger keeps its id and offset - see mergeGroups).
  *   3. Chain-recheck ONCE more, so a drop that bridges two previously
  *      unrelated Groups (only adjacent to each other through the piece that
  *      was just merged in, not through the originally-dropped Group) joins
  *      all three in one resolveDrop call.
  *
  * Precondition: the caller (host.ts) has already released the drop-time grab
- * lock on `groupId` before calling this — findMerges only guards against
+ * lock on `groupId` before calling this - findMerges only guards against
  * OTHER Groups being held, not the dropped Group itself.
  */
 export function resolveDrop(state: GameState, puzzle: Puzzle, groupId: GroupId): DropResolution {

@@ -1,14 +1,14 @@
 /**
  * The single Supabase client for the app. Everything else in src/supabase/
- * goes through this — never construct a second client.
+ * goes through this - never construct a second client.
  *
  * Configured from Vite env vars (see .env.example). Both are required: there
  * is no "offline" mode, so fail loudly with a clear error rather than letting
  * every RPC call fail later with an opaque network error.
  *
  * Construction is deferred to first use (via the Proxy below) rather than
- * done at module load. This means importing this module — or anything that
- * imports it, like storageUpload.ts's pure helpers — never throws just for
+ * done at module load. This means importing this module - or anything that
+ * imports it, like storageUpload.ts's pure helpers - never throws just for
  * being loaded without env vars present (e.g. under vitest); only an actual
  * network call (`supabase.rpc(...)`, `supabase.storage...`) does.
  */
@@ -35,7 +35,7 @@ function createSupabaseClient(): SupabaseClient {
 
 let cachedClient: SupabaseClient | undefined;
 
-/** The app's Supabase client. Publishable-key only — see docs/adr/0001 for why that's safe. Never construct one with a secret key here; there is no server code to hold it. */
+/** The app's Supabase client. Publishable-key only - see docs/adr/0001 for why that's safe. Never construct one with a secret key here; there is no server code to hold it. */
 export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_target, prop, receiver) {
     if (!cachedClient) {

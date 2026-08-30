@@ -3,7 +3,7 @@ import type { GameState, Piece, Puzzle } from "../types";
 import { createInitialState, isComplete, mergeGroups } from "./state";
 import { findMerges, resolveDrop, snapToLattice } from "./snap";
 
-// ── Synthetic 3x3 fixture — deliberately independent of src/puzzle ──
+// ── Synthetic 3x3 fixture - deliberately independent of src/puzzle ──
 //
 //   0(0,0) 1(0,1) 2(0,2)
 //   3(1,0) 4(1,1) 5(1,2)
@@ -35,7 +35,7 @@ function makePuzzle(): Puzzle {
 
 /**
  * All 9 Pieces as singleton Groups. Every Group defaults to a WIDELY spaced
- * (1000px apart) far-away offset — not (0,0) — so two orthogonally-adjacent
+ * (1000px apart) far-away offset - not (0,0) - so two orthogonally-adjacent
  * default Groups never accidentally land within SNAP_TOLERANCE of each
  * other. Tests override specific Groups' offsets to set up the scenario
  * they actually want to exercise.
@@ -56,7 +56,7 @@ function withHeld(state: GameState, groupId: number, playerId: string): GameStat
   return { ...state, heldBy: { ...state.heldBy, [groupId]: playerId } };
 }
 
-describe("findMerges — snap tolerance", () => {
+describe("findMerges - snap tolerance", () => {
   it("finds an adjacent Group just inside tolerance (14 < 15)", () => {
     const puzzle = makePuzzle();
     let state = baseState();
@@ -85,7 +85,7 @@ describe("findMerges — snap tolerance", () => {
   });
 });
 
-describe("findMerges — held Groups are never merge targets", () => {
+describe("findMerges - held Groups are never merge targets", () => {
   it("skips a held neighbour, then finds it once released", () => {
     const puzzle = makePuzzle();
     let state = baseState();
@@ -119,7 +119,7 @@ describe("findMerges — held Groups are never merge targets", () => {
   });
 });
 
-describe("resolveDrop — Lattice snap", () => {
+describe("resolveDrop - Lattice snap", () => {
   it("snaps a Group just inside tolerance of (0,0) to exactly (0,0)", () => {
     const puzzle = makePuzzle();
     const state = withOffset(baseState(), 4, { x: 5, y: -5 }); // magnitude ~7.07 < 15
@@ -146,7 +146,7 @@ describe("resolveDrop — Lattice snap", () => {
   });
 });
 
-describe("resolveDrop — merge direction: smaller absorbed into larger", () => {
+describe("resolveDrop - merge direction: smaller absorbed into larger", () => {
   it("keeps the larger Group's id and offset", () => {
     const puzzle = makePuzzle();
     let state = baseState();
@@ -163,22 +163,22 @@ describe("resolveDrop — merge direction: smaller absorbed into larger", () => 
     expect(result.snapped).toBe(false); // {45,45} itself is far from (0,0)
     expect(result.state.groups[0]).toBeDefined();
     expect(result.state.groups[0].pieceIds.slice().sort()).toEqual([0, 1, 3]);
-    expect(result.state.groups[0].offset).toEqual({ x: 50, y: 50 }); // unchanged — larger keeps its offset
+    expect(result.state.groups[0].offset).toEqual({ x: 50, y: 50 }); // unchanged - larger keeps its offset
     expect(result.state.groups[3]).toBeUndefined();
   });
 });
 
-describe("resolveDrop — chain merge", () => {
+describe("resolveDrop - chain merge", () => {
   it("a single drop bridging two separate Groups merges all three in one call", () => {
     const puzzle = makePuzzle();
     let state = baseState();
     // Three separate Groups, all near the Lattice, with piece 4 in the middle:
     //   group "1" = {1}, group "2" = {2}, dropped group "4" = {4}
-    // piece 4 is adjacent to piece 1 (directly), but NOT adjacent to piece 2 —
+    // piece 4 is adjacent to piece 1 (directly), but NOT adjacent to piece 2 -
     // piece 2 is only reachable through piece 1, so the second Group can only
     // be found on the chain-recheck pass, after piece 1's Group has merged in.
     for (const id of [0, 3, 5, 6, 7, 8]) {
-      state = withOffset(state, id, { x: 500, y: 500 }); // far away — never a candidate
+      state = withOffset(state, id, { x: 500, y: 500 }); // far away - never a candidate
     }
     state = withOffset(state, 1, { x: 0, y: 0 });
     state = withOffset(state, 2, { x: 0, y: 0 });
@@ -194,10 +194,10 @@ describe("resolveDrop — chain merge", () => {
   });
 });
 
-describe("resolveDrop — Completion", () => {
+describe("resolveDrop - Completion", () => {
   it("fires exactly when the last two Groups merge, not before", () => {
     const puzzle = makePuzzle();
-    // Every Piece sitting together near the Lattice — override the "far
+    // Every Piece sitting together near the Lattice - override the "far
     // apart" default from baseState() since this test wants them adjacent.
     const together = Object.fromEntries(Array.from({ length: 9 }, (_, id) => [id, { x: 0, y: 0 }]));
     let state = baseState(together);

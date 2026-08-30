@@ -1,12 +1,12 @@
 /**
- * Guest-side `Transport` (see `../types`). Owns exactly one `Peer` — the
- * connection to the Host — composed with `GuestSignaling`. The Guest is
+ * Guest-side `Transport` (see `../types`). Owns exactly one `Peer` - the
+ * connection to the Host - composed with `GuestSignaling`. The Guest is
  * ALWAYS the WebRTC offerer (see `peer.ts` for why).
  *
  * `Transport` itself has no room for connection status / user-facing errors
  * (no `onError`/`onStatus` hook), but the plan requires showing "couldn't
  * connect" and "room is full" states. `GuestNet` therefore exposes
- * `onConnectionStatus` as an addition *beyond* `Transport` — flagged in the
+ * `onConnectionStatus` as an addition *beyond* `Transport` - flagged in the
  * hand-off notes as a possible gap in `types.ts`.
  */
 
@@ -114,7 +114,7 @@ export class GuestNet implements Transport {
     return this.status;
   }
 
-  /** Cheap, non-authoritative "is a Host currently online" indicator — see signaling.ts. */
+  /** Cheap, non-authoritative "is a Host currently online" indicator - see signaling.ts. */
   onHostPresenceChange(handler: (online: boolean) => void): Unsubscribe {
     this.presenceHandlers.add(handler);
     return () => this.presenceHandlers.delete(handler);

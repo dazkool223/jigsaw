@@ -1,48 +1,46 @@
 /**
- * Live preview of the cut, drawn over the box art in the home screen's well.
+ * The real cut lines, drawn as a transparent canvas over a photo.
  *
- * These are the REAL cut lines, not an illustration of a grid: the same
- * `buildPuzzle` the Room will run, on the same `(seed, rows, cols)` the Room
- * will be created with, so the jittered vertices and every tab and blank are
- * exactly the ones the player gets. That is the whole point — a decorative
- * lattice would promise a different puzzle than the one that gets cut, and
- * "~500" alone doesn't tell you how fine the pieces actually are.
+ * These are the REAL cut lines, not an illustration of a grid: the outlines
+ * come from the same `Puzzle` the board is built from, so every jittered
+ * vertex and every tab and blank is exactly the one the player gets. A
+ * decorative lattice would promise a different puzzle than the one that gets
+ * cut, and "~500" alone doesn't tell you how fine the pieces actually are.
  *
- * The seed therefore has to be chosen before the preview renders and reused
- * at create time; HomeScreen owns it for that reason.
+ * Two callers, one job:
+ *  - HomeScreen, over the box art in the lid's well, before the Room exists.
+ *    (The seed must therefore be chosen up front and reused at create time;
+ *    HomeScreen owns it for that reason.)
+ *  - BoxArt, over the propped-up lid beside the board, during play.
  *
- * Purely presentational and entirely off the gameplay path — this canvas is
- * thrown away the moment the Room is created.
+ * It takes a built `Puzzle` rather than build params so neither caller pays
+ * for a second `buildPuzzle` of geometry it already has.
+ *
+ * Purely presentational and entirely off the gameplay path.
  */
 
-import { useEffect, useMemo, useRef } from "react";
-import { buildPuzzle } from "../puzzle/geometry";
+import { useEffect, useRef } from "react";
+import type { Puzzle } from "../types";
 import { outlineToPath2D } from "../puzzle/textures";
 
+/**
+ * Below this on-screen Cell size the cut stops being information and becomes
+ * a mesh laid over the photo - 500 pieces in a 200px thumbnail is 8px cells,
+ * which reads as hatching, not as a puzzle. Drawing nothing is the honest
+ * result: the picture still shows, and the same preview enlarged draws the
+ * cut again the moment the Cells are big enough to tell apart.
+ */
+const MIN_CELL_PX = 14;
+
 export type PuzzlePreviewProps = {
-  readonly imageUrl: string;
-  /** Natural size of the uploaded image — the space the cut lines live in. */
-  readonly imageWidth: number;
-  readonly imageHeight: number;
-  readonly seed: number;
-  readonly rows: number;
-  readonly cols: number;
+  readonly puzzle: Puzzle;
+  /** Positioning class; the canvas must overlay the photo's own box exactly. */
+  readonly className?: string;
 };
 
-export function PuzzlePreview({
-  imageUrl,
-  imageWidth,
-  imageHeight,
-  seed,
-  rows,
-  cols,
-}: PuzzlePreviewProps) {
+export function PuzzlePreview({ puzzle, className }: PuzzlePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const puzzle = useMemo(
-    () => buildPuzzle({ imageUrl, seed, rows, cols }, imageWidth, imageHeight),
-    [imageUrl, seed, rows, cols, imageWidth, imageHeight],
-  );
+  const { imageW, imageH } = puzzle.grid;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,21 +61,24 @@ export function PuzzlePreview({
       ctx.clearRect(0, 0, cssW, cssH);
 
       // The <img> under this canvas uses object-fit: contain, so the picture
-      // may be letter/pillarboxed inside the well. Match that rect exactly or
+      // may be letter/pillarboxed inside its box. Match that rect exactly or
       // the cut lines drift off the photo.
-      const scale = Math.min(cssW / imageWidth, cssH / imageHeight);
-      const drawW = imageWidth * scale;
-      const drawH = imageHeight * scale;
+      const scale = Math.min(cssW / imageW, cssH / imageH);
+      const drawW = imageW * scale;
+      const drawH = imageH * scale;
+
+      const cellPx = drawW / puzzle.grid.cols;
+      if (cellPx < MIN_CELL_PX) return;
+
       ctx.translate((cssW - drawW) / 2, (cssH - drawH) / 2);
       ctx.scale(scale, scale);
 
       // Two passes so the cut reads on both bright sky and dark shadow: a
       // soft dark line, then a finer light one on top of it.
       //
-      // Weight tracks cell size rather than being a fixed pixel width. A
+      // Weight tracks Cell size rather than being a fixed pixel width. A
       // constant stroke is right at 24 pieces but turns a 500-piece preview
       // into a cage of lines with the photo barely visible behind it.
-      const cellPx = drawW / puzzle.grid.cols;
       const darkWidth = Math.min(1.9, Math.max(0.5, cellPx * 0.045));
 
       const paths = puzzle.pieces.map(outlineToPath2D);
@@ -94,11 +95,12 @@ export function PuzzlePreview({
 
     draw();
 
-    // The well is fluid (and changes aspect with the photo), so redraw on resize.
+    // Both hosts are fluid (the well changes aspect with the photo; the
+    // enlarged lid tracks the viewport), so redraw on resize.
     const observer = new ResizeObserver(draw);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [puzzle, imageWidth, imageHeight]);
+  }, [puzzle, imageW, imageH]);
 
-  return <canvas ref={canvasRef} className="well__cut" aria-hidden="true" />;
+  return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }

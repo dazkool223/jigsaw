@@ -1,5 +1,5 @@
 /**
- * Shared domain types. Vocabulary follows CONTEXT.md — Piece, Edge, Tab, Blank,
+ * Shared domain types. Vocabulary follows CONTEXT.md - Piece, Edge, Tab, Blank,
  * Cell, Group, Lattice, Room, Host, Guest, Snapshot.
  *
  * This file is the contract between modules. Nothing here depends on Pixi,
@@ -30,7 +30,7 @@ export type BezierSegment = {
  * One cut line between two adjacent Pieces, or a straight outer boundary.
  *
  * INTERLOCK INVARIANT: each interior Edge is generated exactly once and shared
- * by both neighbouring Pieces — one of them traverses it reversed. Pieces must
+ * by both neighbouring Pieces - one of them traverses it reversed. Pieces must
  * never generate their own outlines from the PRNG, or neighbours get mismatched
  * curves and nothing interlocks.
  *
@@ -64,7 +64,7 @@ export type Piece = {
   readonly col: number;
   /**
    * The Piece's solved position: its nominal (unjittered) Cell origin.
-   * This is the Lattice position — vertex jitter never moves it.
+   * This is the Lattice position - vertex jitter never moves it.
    */
   readonly solved: Point;
   /** Closed outline: 4 Edges, already oriented head-to-tail (top, right, bottom, left). */
@@ -95,7 +95,7 @@ export type Puzzle = {
  * A rigid set of Pieces that moves as one. Every Piece belongs to exactly one
  * Group; a lone Piece is a Group of one.
  *
- * KEY INVARIANT — the whole snap/merge design rests on this:
+ * KEY INVARIANT - the whole snap/merge design rests on this:
  * a Group stores a single `offset`, a translation applied to every member
  * Piece's `solved` position. A Piece's world position is ALWAYS
  * `piece.solved + group.offset`. Pieces never store their own positions.
@@ -103,7 +103,7 @@ export type Puzzle = {
  * It follows that:
  *  - a Group is correctly placed exactly when `offset` is (0, 0);
  *  - two Groups may Merge iff they contain orthogonally adjacent Pieces AND
- *    their offsets agree within tolerance — no per-Piece maths needed;
+ *    their offsets agree within tolerance - no per-Piece maths needed;
  *  - merging never moves Pieces relative to one another.
  */
 export type Group = {
@@ -154,7 +154,7 @@ export type Recipient = PlayerId | typeof BROADCAST;
  */
 /**
  * Connection state a Transport can report. `failed` and `roomFull` carry a
- * message written for a human — the plan requires the 15s connect timeout and
+ * message written for a human - the plan requires the 15s connect timeout and
  * the player cap to surface as clear UI, not a silent hang.
  */
 export type TransportStatus =
@@ -188,7 +188,7 @@ export interface Transport {
   close(): void;
 
   /**
-   * Optional because the in-process loopback has no connection to report — it
+   * Optional because the in-process loopback has no connection to report - it
    * is always connected. Real WebRTC transports MUST implement both, so the UI
    * can show "couldn't connect" or "room is full" instead of hanging.
    */

@@ -1,7 +1,7 @@
 /**
  * The canonical wire protocol for `src/net/`. Discriminated union on `type`,
  * JSON-encoded. This is the ONLY source of truth for what crosses the WebRTC
- * data channels — `hostNet.ts` / `guestNet.ts` never invent ad-hoc shapes.
+ * data channels - `hostNet.ts` / `guestNet.ts` never invent ad-hoc shapes.
  *
  * Two channels carry these messages (see `Channel` in `../types`):
  *   - `control` (reliable/ordered): JOIN, WELCOME, FULL_STATE, STATE_REQUEST,
@@ -9,7 +9,7 @@
  *     ROOM_FULL, HOST_CHANGED.
  *   - `stream` (unreliable/unordered, ~STREAM_HZ): MOVE, CURSOR. Both carry a
  *     monotonic `seq` so a receiver can drop anything older than the last
- *     seq it accepted — see `dropStale`.
+ *     seq it accepted - see `dropStale`.
  *
  * Everything arrives from the network, so nothing here is trusted by
  * construction. `parseMessage` is the single validated entry point: it never
@@ -25,7 +25,7 @@
  *     last `seq` it accepted and pulls a resync (STATE_REQUEST) on a gap.
  *   - Unicast replies that also happen to carry `seq` (WELCOME, and the
  *     on-demand-reply use of FULL_STATE) use it only to (re-)establish the
- *     ONE Guest's baseline — the Host stamps the CURRENT counter value
+ *     ONE Guest's baseline - the Host stamps the CURRENT counter value
  *     without incrementing it, and the receiver adopts it rather than
  *     gap-checking it. Otherwise, answering one Guest's on-demand
  *     STATE_REQUEST would manufacture a phantom sequence gap for everyone
@@ -67,7 +67,7 @@ export type JoinMessage = {
  * never needs a separate round-trip to get in sync.
  *
  * `seq` establishes the Guest's baseline for the ordered control stream (see
- * the module-level "Sequencing" note below) — it is NOT gap-checked, only
+ * the module-level "Sequencing" note below) - it is NOT gap-checked, only
  * adopted, since a unicast reply to one joining Guest must never look like a
  * dropped broadcast to anyone else.
  */
@@ -82,9 +82,9 @@ export type WelcomeMessage = {
 };
 
 /**
- * Host -> Guest(s). Either a periodic broadcast resync (RESYNC_INTERVAL_MS —
+ * Host -> Guest(s). Either a periodic broadcast resync (RESYNC_INTERVAL_MS -
  * a genuine broadcast, gap-checked like any other) or a unicast reply to one
- * Guest's STATE_REQUEST (re-baselines that Guest only, not gap-checked — see
+ * Guest's STATE_REQUEST (re-baselines that Guest only, not gap-checked - see
  * the module-level "Sequencing" note). Same shape either way; which one a
  * given message is depends on whether it arrived via broadcast or unicast,
  * not on anything in the payload.
@@ -112,7 +112,7 @@ export type GrabMessage = {
  * Host -> all. The first requester wins; broadcast (not just to the winner)
  * so every client greys out the Group, and gap-checked like any other
  * control broadcast (see the module-level "Sequencing" note). `z` is the
- * Group's new draw order after being brought to front — grabbing always
+ * Group's new draw order after being brought to front - grabbing always
  * raises a Group, and the winner is told the resulting value directly
  * instead of recomputing bringToFront's counter locally.
  */
@@ -126,7 +126,7 @@ export type GrabGrantedMessage = {
 
 /**
  * Host -> the losing Guest only. Tells it to snap the Group back locally.
- * Terminal, one-off, outside the ordered control stream — no `seq` (see the
+ * Terminal, one-off, outside the ordered control stream - no `seq` (see the
  * module-level "Sequencing" note). `reason` distinguishes a race loss
  * ("held": someone else already had it) from a stale request against a
  * Group that no longer exists ("not-found", e.g. it merged away).
@@ -159,7 +159,7 @@ export type DropMessage = {
  * Host -> all. The atomic result of a DROP: any Groups that merged are
  * replaced by their post-merge form in `groups`; Groups absorbed into another
  * Group (and so cease to exist) are listed in `removedGroupIds`. A dropped
- * Group is implicitly no longer held — receivers should clear `heldBy` for
+ * Group is implicitly no longer held - receivers should clear `heldBy` for
  * every id in both `groups` and `removedGroupIds`. `nextZ` / `nextGroupId`
  * echo the Host's authoritative counters after the merge.
  */
@@ -201,7 +201,7 @@ export type CompleteMessage = {
 /**
  * Host -> rejected Guest. MAX_PLAYERS already reached. May be sent either
  * over signaling (before a data channel exists) or over `control` (if the
- * cap was hit mid-handshake) — see hostNet.ts.
+ * cap was hit mid-handshake) - see hostNet.ts.
  */
 export type RoomFullMessage = {
   readonly type: "ROOM_FULL";
@@ -212,7 +212,7 @@ export type RoomFullMessage = {
  * observed (e.g. via Realtime while this Host is still connected to
  * Guests). Lets connected Guests learn about the takeover from a clean
  * message instead of just an abrupt disconnect when this Host tears itself
- * down. Does NOT itself arbitrate who the Host is — the Host Epoch in the
+ * down. Does NOT itself arbitrate who the Host is - the Host Epoch in the
  * database does that (see CONTEXT.md).
  */
 export type HostChangedMessage = {
@@ -238,7 +238,7 @@ export type ProtocolMessage =
   | RoomFullMessage
   | HostChangedMessage;
 
-/** Messages sent on the unreliable `stream` channel — the ones that carry `seq`. */
+/** Messages sent on the unreliable `stream` channel - the ones that carry `seq`. */
 export type StreamMessage = MoveMessage | CursorMessage;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -508,7 +508,7 @@ const GUARDS_BY_TYPE: Readonly<
 
 /**
  * Validates data that arrived from the network. Never throws, regardless of
- * input shape — returns `null` for anything malformed. `raw` is expected to
+ * input shape - returns `null` for anything malformed. `raw` is expected to
  * already be a parsed JSON value (i.e. the caller does `JSON.parse` on the
  * wire string first); a raw JSON *string* is itself rejected as malformed,
  * since a valid message is always an object.

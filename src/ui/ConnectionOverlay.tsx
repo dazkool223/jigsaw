@@ -2,9 +2,9 @@
  * Driven by `TransportStatus` (see ../types.ts). Covers every state that
  * would otherwise leave the user staring at a silent hang:
  *
- *  - connecting: a simple, honest "Connecting" — no fake progress bar.
+ *  - connecting: a simple, honest "Connecting" - no fake progress bar.
  *  - failed: the transport's own message verbatim (this is the 15s
- *    STUN-only timeout from config.ts's CONNECT_TIMEOUT_MS — see peer.ts).
+ *    STUN-only timeout from config.ts's CONNECT_TIMEOUT_MS - see peer.ts).
  *    Copy is upfront that some networks can't complete a STUN-only
  *    connection, with a Retry action.
  *  - roomFull: the transport's own message verbatim, no Retry (retrying
@@ -43,7 +43,7 @@ export function ConnectionOverlay({ status, onRetry, onBackToHome }: ConnectionO
           <>
             <div className="card__body">
               {/* Title names the situation, body is the transport's own words,
-                  hint adds only the fix — peer.ts already states the cause, so
+                  hint adds only the fix - peer.ts already states the cause, so
                   repeating "mobile networks" here would say it three times. */}
               <h2 className="card__title">Couldn't join this puzzle</h2>
               <p className="card__text">{status.message}</p>

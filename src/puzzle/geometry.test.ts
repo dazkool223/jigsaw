@@ -19,7 +19,7 @@ function pointsEqual(a: Point, b: Point, eps = 1e-9): boolean {
   return Math.abs(a.x - b.x) < eps && Math.abs(a.y - b.y) < eps;
 }
 
-describe("buildPuzzle — the interlock invariant", () => {
+describe("buildPuzzle - the interlock invariant", () => {
   it("shares curves reversed between every vertically adjacent Piece pair (bottom<->top)", () => {
     const puzzle = buildPuzzle(definition(), 1600, 1200);
     const { rows, cols } = puzzle.grid;
@@ -71,7 +71,7 @@ describe("buildPuzzle — the interlock invariant", () => {
   });
 });
 
-describe("buildPuzzle — determinism", () => {
+describe("buildPuzzle - determinism", () => {
   it("gives deeply equal output for the same seed", () => {
     const a = buildPuzzle(definition({ seed: 777 }), 1600, 1200);
     const b = buildPuzzle(definition({ seed: 777 }), 1600, 1200);
@@ -85,7 +85,7 @@ describe("buildPuzzle — determinism", () => {
   });
 });
 
-describe("buildPuzzle — outline closure", () => {
+describe("buildPuzzle - outline closure", () => {
   it("every Piece outline is a closed path", () => {
     const puzzle = buildPuzzle(definition(), 1600, 1200);
     for (const piece of puzzle.pieces) {
@@ -98,7 +98,7 @@ describe("buildPuzzle — outline closure", () => {
   });
 });
 
-describe("buildPuzzle — border Pieces", () => {
+describe("buildPuzzle - border Pieces", () => {
   it("have straight, collinear outer Edges", () => {
     const puzzle = buildPuzzle(definition(), 1600, 1200);
     const { rows, cols } = puzzle.grid;
@@ -146,7 +146,7 @@ describe("buildPuzzle — border Pieces", () => {
   });
 });
 
-describe("buildPuzzle — solved position is the unjittered Lattice, never moved by jitter", () => {
+describe("buildPuzzle - solved position is the unjittered Lattice, never moved by jitter", () => {
   it("matches the nominal Cell origin exactly", () => {
     const puzzle = buildPuzzle(definition(), 1600, 1200);
     const { cellW, cellH } = puzzle.grid;
@@ -157,7 +157,7 @@ describe("buildPuzzle — solved position is the unjittered Lattice, never moved
   });
 });
 
-describe("buildPuzzle — bbox bounded by Tab overhang + vertex jitter", () => {
+describe("buildPuzzle - bbox bounded by Tab overhang + vertex jitter", () => {
   it("no Piece's bbox exceeds its Cell by more than tab height + vertex jitter on any side", () => {
     const puzzle = buildPuzzle(definition({ rows: 10, cols: 10 }), 2000, 2000);
     const { cellW, cellH } = puzzle.grid;
@@ -178,7 +178,7 @@ describe("buildPuzzle — bbox bounded by Tab overhang + vertex jitter", () => {
   });
 });
 
-describe("buildPuzzle — grid fitting extremes stay sane end-to-end", () => {
+describe("buildPuzzle - grid fitting extremes stay sane end-to-end", () => {
   it("builds a valid puzzle for a very wide image", () => {
     const puzzle = buildPuzzle(definition({ rows: 2, cols: 40 }), 4000, 400);
     expect(puzzle.pieces.length).toBe(80);

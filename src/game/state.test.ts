@@ -13,7 +13,7 @@ import {
   serialize,
 } from "./state";
 
-// ── Synthetic 3x3 fixture — deliberately independent of src/puzzle ──
+// ── Synthetic 3x3 fixture - deliberately independent of src/puzzle ──
 
 function makePiece(id: number): Piece {
   const row = Math.floor(id / 3);
@@ -82,7 +82,7 @@ describe("grabGroup / releaseGroup", () => {
     expect(again.state).toBe(first.state);
   });
 
-  it("denies a grab on a Group already held by a different player — first requester wins", () => {
+  it("denies a grab on a Group already held by a different player - first requester wins", () => {
     const state = createInitialState(makePuzzle(), {});
     const alice = grabGroup(state, 0, "alice");
     expect(alice.granted).toBe(true);
@@ -144,7 +144,7 @@ describe("mergeGroups", () => {
     const puzzle = makePuzzle();
     let state = createInitialState(puzzle, {
       0: { x: 5, y: 5 },
-      1: { x: 999, y: 999 }, // deliberately different — merge must NOT change into's offset
+      1: { x: 999, y: 999 }, // deliberately different - merge must NOT change into's offset
     });
     state = { ...state, groups: { ...state.groups, 1: { ...state.groups[1], z: 100 } } };
 

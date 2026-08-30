@@ -1,6 +1,6 @@
 /**
  * Grid fitting and initial scatter. Pure functions, no PRNG state escapes
- * this module — a fresh Room needs zero position sync because every peer
+ * this module - a fresh Room needs zero position sync because every peer
  * derives the same scatter from the same seed.
  */
 
@@ -11,7 +11,7 @@ import { keyedRandom } from "./rng";
 /**
  * Fit a rows x cols grid to an image so Cells stay roughly (not exactly)
  * square, targeting `targetPieces` total. The actual piece count (rows*cols)
- * will differ from the target — that is expected: "500" on a 4:3 image
+ * will differ from the target - that is expected: "500" on a 4:3 image
  * yields 26x19 = 494.
  */
 export function fitGrid(imageW: number, imageH: number, targetPieces: number): Grid {
@@ -29,7 +29,7 @@ export function fitGrid(imageW: number, imageH: number, targetPieces: number): G
 
 /**
  * Deterministic initial scatter, one offset per Piece in row-major order
- * (id = row*cols+col — the same ordering `geometry.ts#buildPuzzle` assigns
+ * (id = row*cols+col - the same ordering `geometry.ts#buildPuzzle` assigns
  * Piece ids in), so `scatterOffsets(grid, seed)[piece.id]` is a Group
  * `offset` ready to apply directly: `piece.solved + offset` places the Piece
  * scattered instead of solved.

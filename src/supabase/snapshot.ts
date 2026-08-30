@@ -3,25 +3,25 @@
  *
  * Gameplay performance is the top priority: serialisation must stay OFF the
  * drag path. `markDirty()` is the cheap call the game loop makes on every
- * move — it just sets a flag and (re)arms a debounce timer. The actual
+ * move - it just sets a flag and (re)arms a debounce timer. The actual
  * serialise-and-write work happens only inside the debounced flush, never on
  * every move.
  *
  * Also flushes immediately on `visibilitychange` -> hidden (Chrome throttles
  * background-tab timers, so this is the only reliable save before an
- * alt-tab/close — see plan "Backgrounded Host") and must be called
+ * alt-tab/close - see plan "Backgrounded Host") and must be called
  * explicitly on Completion.
  *
  * Every write carries the current Host Epoch (ADR-0001). When a write comes
  * back epoch-rejected, `onDeposed` fires so the app can tear down hosting and
- * offer Rejoin — this module never decides what demotion looks like, only
+ * offer Rejoin - this module never decides what demotion looks like, only
  * detects it.
  */
 
 import { SNAPSHOT_DEBOUNCE_MS } from "../config";
 import { saveSnapshot, type SaveSnapshotResult } from "./rooms";
 
-/** What to serialise into the Snapshot at flush time. Called lazily — never eagerly. */
+/** What to serialise into the Snapshot at flush time. Called lazily - never eagerly. */
 export type SnapshotSource = () => { snapshot: unknown; completed: boolean };
 
 /** Matches saveSnapshot's signature; overridable in tests so no network is touched. */
@@ -34,7 +34,7 @@ export type SaveSnapshotFn = (
 
 export type SnapshotSchedulerOptions = {
   code: string;
-  /** Read lazily at flush time — always the Host's current epoch, never captured stale. */
+  /** Read lazily at flush time - always the Host's current epoch, never captured stale. */
   getEpoch: () => number;
   getSnapshotData: SnapshotSource;
   /** Fired when a write is epoch-rejected: a newer Host has claimed the Room. */
@@ -73,7 +73,7 @@ export class SnapshotScheduler {
   }
 
   /**
-   * Cheap: call on every move. Never serialises — only marks state dirty and
+   * Cheap: call on every move. Never serialises - only marks state dirty and
    * arms the debounce timer if one isn't already running.
    */
   markDirty(): void {

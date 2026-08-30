@@ -1,12 +1,12 @@
 /**
  * Bakes Pieces into shared atlas sheets, once, off the gameplay path (see
  * CONTEXT.md "Baking and seams" / the plan's "Baking and seams" section).
- * After baking, Pieces are dumb Sprites — nothing here runs per-frame.
+ * After baking, Pieces are dumb Sprites - nothing here runs per-frame.
  *
  * This module is split in two:
- *   - PURE MATHS (region sizing, atlas packing, anchor computation) — plain
+ *   - PURE MATHS (region sizing, atlas packing, anchor computation) - plain
  *     functions over plain data, fully unit-tested without a DOM.
- *   - CANVAS I/O (`outlineToPath2D`, `bakeAtlases`) — needs `Path2D` /
+ *   - CANVAS I/O (`outlineToPath2D`, `bakeAtlases`) - needs `Path2D` /
  *     `CanvasRenderingContext2D`, only available in a browser, so it is
  *     exercised by hand / in the running app, not by vitest.
  */
@@ -15,7 +15,7 @@ import type { Edge, Piece, PieceId, Point, Puzzle, Rect } from "../types";
 import { ATLAS_PADDING_PX, ATLAS_SIZE, BAKE_EXPAND_PX, BAKE_SCALE } from "../config";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PURE MATHS — packing, region sizing, anchors. No DOM.
+// PURE MATHS - packing, region sizing, anchors. No DOM.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -24,7 +24,7 @@ import { ATLAS_PADDING_PX, ATLAS_SIZE, BAKE_EXPAND_PX, BAKE_SCALE } from "../con
  *
  * `anchorX`/`anchorY` are in image space (the same units as `Piece.solved`):
  * the offset from the Piece's solved position to the world-space point that
- * the frame's local (0, 0) — its top-left texel — represents. So the
+ * the frame's local (0, 0) - its top-left texel - represents. So the
  * renderer positions the Sprite at `piece.solved + anchor` and, because the
  * bake is `BAKE_SCALE`x oversized, scales the Sprite by `1 / BAKE_SCALE` to
  * bring it back to image-space size. This is what lets a Piece's rendered
@@ -92,7 +92,7 @@ export type PackedRegion = {
  * Deterministic shelf/row packer: places regions left-to-right, wrapping to a
  * new row when one doesn't fit, and opening a new sheet when a row doesn't
  * fit vertically either. Not space-optimal, but correct (no overlaps, never
- * exceeds sheet bounds) and stable across runs given the same input order —
+ * exceeds sheet bounds) and stable across runs given the same input order -
  * which is all baking needs, since it runs once per Room.
  *
  * `padding` separates every region from its neighbours and from the sheet
@@ -148,14 +148,14 @@ export function sheetCount(regions: readonly PackedRegion[]): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CANVAS I/O — needs a real DOM. Not exercised by vitest.
+// CANVAS I/O - needs a real DOM. Not exercised by vitest.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Builds a closed Path2D from a Piece's outline: `moveTo` the first Edge's
  * `from`, then `bezierCurveTo` every segment of every Edge in order, then
  * close. Coordinates are absolute image space (the same space `Piece.outline`
- * is already defined in) — callers apply their own canvas transform rather
+ * is already defined in) - callers apply their own canvas transform rather
  * than this function baking one in, so the same path works both for baking
  * (translated/scaled into an atlas region) and for hit-testing in
  * `interactions.ts` (used directly in world space).
@@ -175,7 +175,7 @@ export function outlineToPath2D(piece: Piece): Path2D {
   return path;
 }
 
-/** Minimal surface `bakeAtlases` needs from a canvas — satisfied by both
+/** Minimal surface `bakeAtlases` needs from a canvas - satisfied by both
  * `HTMLCanvasElement` and `OffscreenCanvas`. */
 export type CanvasLike = {
   width: number;
@@ -188,7 +188,7 @@ export type BakeOptions = {
   readonly padding?: number;
   readonly bakeScale?: number;
   readonly expandPx?: number;
-  /** Injectable canvas factory — defaults to `document.createElement("canvas")`. */
+  /** Injectable canvas factory - defaults to `document.createElement("canvas")`. */
   readonly createCanvas?: (size: number) => CanvasLike;
 };
 

@@ -5,7 +5,7 @@ import { Host } from "./host";
 import { Client } from "./client";
 import { LoopbackHub } from "./loopback";
 
-// ── Synthetic 3x3 fixture — deliberately independent of src/puzzle ──
+// ── Synthetic 3x3 fixture - deliberately independent of src/puzzle ──
 
 function makePiece(id: number): Piece {
   const row = Math.floor(id / 3);
@@ -92,7 +92,7 @@ describe("Host over loopback", () => {
 
     // Both sides converge on the same final position for the dropped Group,
     // AND on the hold having been released (the Client applies both offset
-    // and release atomically from the Host's "snap" message — checking both
+    // and release atomically from the Host's "snap" message - checking both
     // here, not just offset, avoids a false-positive from the Client's own
     // earlier *optimistic* apply, which sets the offset before the Host's
     // authoritative round trip clears the hold).
@@ -168,7 +168,7 @@ describe("Live drag is visible to bystanders, not just on drop", () => {
     alice.grab(0);
     await waitUntil(() => host.getState().heldBy[0] === "alice");
 
-    // Mid-drag, BEFORE any drop — Bob must see this without waiting for DROP/SNAP.
+    // Mid-drag, BEFORE any drop - Bob must see this without waiting for DROP/SNAP.
     alice.move(0, { x: 17, y: -9 });
     await waitUntil(() => bob.getState().groups[0]?.offset.x === 17 && bob.getState().groups[0]?.offset.y === -9);
 
@@ -198,7 +198,7 @@ describe("Host local play (the Host's own browser is a player too)", () => {
     });
     await waitUntil(() => guest.isReady());
 
-    // Synchronous result, unlike Client.grab() — the Host is the arbiter.
+    // Synchronous result, unlike Client.grab() - the Host is the arbiter.
     expect(host.grab(0)).toEqual({ granted: true });
     expect(host.getState().heldBy[0]).toBe("host-player");
 
@@ -240,7 +240,7 @@ describe("Host local play (the Host's own browser is a player too)", () => {
     await waitUntil(() => host.getState().heldBy[0] === "guest-1");
 
     expect(host.grab(0)).toEqual({ granted: false, reason: "held" });
-    expect(host.getState().heldBy[0]).toBe("guest-1"); // unchanged — the Guest keeps the lock
+    expect(host.getState().heldBy[0]).toBe("guest-1"); // unchanged - the Guest keeps the lock
 
     host.close();
     guest.close();
@@ -279,7 +279,7 @@ describe("Host local play (the Host's own browser is a player too)", () => {
     unsubscribe();
     const beforeUnsub = changes;
     host.move(1, { x: 5, y: 5 });
-    expect(changes).toBe(beforeUnsub); // unsubscribed — no further notifications
+    expect(changes).toBe(beforeUnsub); // unsubscribed - no further notifications
 
     host.close();
     guest.close();
@@ -291,7 +291,7 @@ describe("Host resume-as-Host (initialState)", () => {
     const puzzle = makePuzzle();
     const persisted: GameState = {
       groups: {
-        // Pieces 0 and 1 already merged into one Group mid-board — this is
+        // Pieces 0 and 1 already merged into one Group mid-board - this is
         // exactly what a fresh scatter would never produce, so its presence
         // in the resumed Host proves the snapshot was actually used.
         0: { id: 0, pieceIds: [0, 1], offset: { x: 12, y: 7 }, z: 3 },
