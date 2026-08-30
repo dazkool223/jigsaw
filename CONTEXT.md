@@ -104,4 +104,4 @@ A per-device identity (name + cursor color) persisted locally. Cosmetic only —
 - The Home screen renders and works standalone, but "Create puzzle" will fail (no RPCs to call).
 - M2 and M3's live-verification checklists above can't be attempted.
 
-Next concrete steps: create a Supabase project → run `supabase/schema.sql` in its SQL editor → create the public `puzzles` storage bucket → copy `.env.example` to `.env.local` with the project's URL/anon key → re-test Home → Create → Room → (second browser window) Join.
+Next concrete steps: create a Supabase project → run `supabase/schema.sql` in its SQL editor → create the public `puzzles` storage bucket → copy `.env.example` to `.env.local` with the project's URL/publishable key → re-test Home → Create → Room → (second browser window) Join.

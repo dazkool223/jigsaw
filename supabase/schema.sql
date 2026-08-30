@@ -10,10 +10,14 @@
 -- SECURITY MODEL (see docs/adr/0001-host-epoch-and-rpc-only-access.md)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- The Room `code` IS the credential: presenting it grants access to that Room,
--- and it must never be possible to LIST codes. The anon key ships in the JS
--- bundle, so if we granted anon direct SELECT on `rooms` (even behind a
--- permissive RLS policy), anyone holding the bundled key could enumerate every
--- Room, harvest every image and Snapshot, and overwrite anyone's board.
+-- and it must never be possible to LIST codes. The client authenticates with
+-- the publishable key (Supabase's current name for what used to be called the
+-- anon key — same low privilege, still maps to the Postgres role `anon` used
+-- throughout this file's grants/policies below) and that key ships in the JS
+-- bundle, so if we granted the `anon` role direct SELECT on `rooms` (even
+-- behind a permissive RLS policy), anyone holding the bundled key could
+-- enumerate every Room, harvest every image and Snapshot, and overwrite
+-- anyone's board.
 --
 -- So: RLS is enabled on `rooms` with NO policies (deny-all by default), all
 -- default table privileges are revoked from anon/authenticated, and the ONLY
@@ -249,8 +253,8 @@ grant execute on function public.save_snapshot(text, int, jsonb, boolean) to ano
 --
 -- !! NO anon SELECT POLICY ON storage.objects — THIS IS DELIBERATE. !!
 -- Object paths are `rooms/<code>/image`, so the path CONTAINS the credential.
--- A select policy on this bucket would let anyone holding the bundled anon key
--- call storage.list('rooms') and enumerate every Room code — reopening exactly
+-- A select policy on this bucket would let anyone holding the bundled
+-- publishable key call storage.list('rooms') and enumerate every Room code — reopening exactly
 -- the enumeration hole that ADR-0001 closes at the table level, and handing the
 -- attacker get_room()/save_snapshot() access to every board. Public-bucket
 -- reads go through /object/public/<bucket>/<path>, which does not consult RLS,

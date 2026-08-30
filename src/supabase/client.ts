@@ -17,25 +17,25 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 function createSupabaseClient(): SupabaseClient {
   const url = import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   const missing: string[] = [];
   if (!url) missing.push("VITE_SUPABASE_URL");
-  if (!anonKey) missing.push("VITE_SUPABASE_ANON_KEY");
+  if (!publishableKey) missing.push("VITE_SUPABASE_PUBLISHABLE_KEY");
   if (missing.length > 0) {
     throw new Error(
       `Missing Supabase config: ${missing.join(", ")}. Copy .env.example to ` +
-        `.env.local and fill in your Supabase project's URL and anon key ` +
-        `(Settings -> API in the dashboard).`,
+        `.env.local and fill in your Supabase project's URL and publishable key ` +
+        `(Settings -> API Keys in the dashboard).`,
     );
   }
 
-  return createClient(url, anonKey);
+  return createClient(url, publishableKey);
 }
 
 let cachedClient: SupabaseClient | undefined;
 
-/** The app's Supabase client. Anon-key only — see docs/adr/0001 for why that's safe. */
+/** The app's Supabase client. Publishable-key only — see docs/adr/0001 for why that's safe. Never construct one with a secret key here; there is no server code to hold it. */
 export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_target, prop, receiver) {
     if (!cachedClient) {
