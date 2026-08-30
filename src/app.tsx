@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import type { Player, PlayerId, Puzzle } from "./types";
+import type { Player, PlayerController, PlayerId, Puzzle } from "./types";
 import { getIdentity, renameIdentity } from "./supabase/identity";
 import { supabase } from "./supabase/client";
 import { getRoom, claimHost as claimHostRpc, type RoomRow } from "./supabase/rooms";
@@ -32,6 +32,7 @@ import { Host } from "./game/host";
 import { Client } from "./game/client";
 import { HostNet } from "./net/hostNet";
 import { GuestNet } from "./net/guestNet";
+import { mountBoard } from "./render/board";
 
 import { HomeScreen } from "./ui/HomeScreen";
 import { BoardMount } from "./ui/BoardMount";
@@ -177,6 +178,18 @@ class RoomSessionController {
 
   start(): void {
     void this.loadRoom();
+  }
+
+  /** For BoardMount's onMount (see handleBoardMount below) — read fresh at mount time, not captured in a stale render closure. */
+  getSession(): PuzzleSession | undefined {
+    return this.session;
+  }
+
+  /** The active Host or Client, whichever this browser currently is. Undefined outside "playing". */
+  getController(): PlayerController | undefined {
+    if (this.role === "guest") return this.client;
+    if (this.role === "host") return this.host;
+    return undefined;
   }
 
   dispose(): void {
@@ -495,23 +508,22 @@ function RoomScreenController({ code }: { code: string }) {
   }, [code]);
 
   const handleBoardMount = useCallback((el: HTMLDivElement) => {
-    // TODO(wiring): attach the PixiJS renderer here. It needs:
-    //  - `state.session.puzzle` (geometry) and `state.session.imageUrl`
-    //    (source image for texture baking — see puzzle/textures.ts) once
-    //    `state.kind === "playing"`;
-    //  - a way to send/receive this browser's own player intents
-    //    (grab/move/drop/cursor). For a Guest that's the live `Client`
-    //    instance the controller built (not currently exposed outside this
-    //    file — thread it through once the renderer needs it).
-    //    For the HOST'S OWN local play there is currently NO equivalent:
-    //    `game/host.ts`'s `Host` class exposes no public grab/move/drop API
-    //    of its own (see the hand-off report's "Host self-play gap"). The
-    //    likely fix is either a local `Client` wired to the same `Host` via
-    //    a `game/loopback.ts` LoopbackHub (mirroring the M1 pattern), or new
-    //    mutator methods on `Host` — a decision for whoever owns game/host.ts.
-    // Mount into `el`; return a cleanup function that destroys the Pixi
-    // Application on unmount / room change.
-    void el;
+    // Read the live controller/session off the ref rather than the `state`
+    // in scope: this callback has a stable identity (empty deps, so
+    // BoardMount mounts it once per "playing" entry — see BoardMount's doc
+    // comment), so a `state` closed over here would be whatever it was on
+    // the render that created the callback, not the "playing" one that
+    // actually triggers the mount.
+    const controller = controllerRef.current;
+    const session = controller?.getSession();
+    const playerController = controller?.getController();
+    if (!session || !playerController) return;
+    return mountBoard({
+      container: el,
+      puzzle: session.puzzle,
+      imageUrl: session.imageUrl,
+      controller: playerController,
+    });
   }, []);
 
   switch (state.kind) {

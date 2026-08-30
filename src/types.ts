@@ -161,6 +161,24 @@ export type TransportStatus =
   | { readonly state: "new" | "connecting" | "connected" | "closed" }
   | { readonly state: "failed" | "roomFull"; readonly message: string };
 
+/**
+ * The common shape of Host's and Client's player-facing API: grab/move/drop
+ * intents plus enough queries for the renderer (see render/board.ts) to
+ * reconcile the scene and draw remote cursors, without caring which one it
+ * has. Both `Host` and `Client` satisfy this structurally.
+ */
+export interface PlayerController {
+  getState(): GameState;
+  getPlayers(): readonly Player[];
+  getPlayerId(): PlayerId | undefined;
+  getCursors(): ReadonlyMap<PlayerId, Point>;
+  onChange(fn: () => void): () => void;
+  grab(groupId: GroupId): void;
+  move(groupId: GroupId, offset: Point): void;
+  drop(groupId: GroupId, offset: Point): void;
+  sendCursor(point: Point): void;
+}
+
 export interface Transport {
   send(channel: Channel, to: Recipient, msg: unknown): void;
   /** Returns an unsubscribe function. */
