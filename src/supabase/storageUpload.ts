@@ -8,13 +8,15 @@
  *   3. downscale so the longest side is at most IMAGE_MAX_EDGE
  *   4. encode WebP at WEBP_QUALITY; fall back to JPEG at JPEG_FALLBACK_QUALITY
  *      if the browser can't encode WebP
- *   5. upload to rooms/<code>/image with the REAL content type
+ *   5. upload to rooms/<code>/image-<random> with the REAL content type
+ *      (see uploadPathForRoom for why the random suffix)
  *
  * The pure, testable parts (size check, dimension maths, format decision) are
  * exported separately from the I/O (decode, canvas, upload) so they can be
  * unit-tested without a browser or network — see storageUpload.test.ts.
  */
 
+import { nanoid } from "nanoid";
 import { IMAGE_MAX_EDGE, JPEG_FALLBACK_QUALITY, UPLOAD_MAX_BYTES, WEBP_QUALITY } from "../config";
 import { supabase } from "./client";
 
@@ -147,20 +149,36 @@ export async function decodeUpload(
 
 export type UploadResult = { path: string; contentType: string };
 
-/** The storage path a Room's image always lives at. */
-export function imagePathForRoom(code: string): string {
-  return `rooms/${code}/image`;
+/**
+ * A fresh storage path for a Room's image, under its code (still requires
+ * the code to construct — see ADR-0001) but never reused across upload
+ * attempts. `rooms/<code>/image` alone would collide if a user re-picks the
+ * image before clicking "Create puzzle" (no Room row exists yet to gate a
+ * second upload), and Storage's own overwrite mechanisms both turned out to
+ * be unusable here: `upsert: true` needs a SELECT policy we deliberately
+ * don't grant (ADR-0001 — it would let the bundled publishable key list and
+ * enumerate every Room code), and delete-then-insert should in principle
+ * work with an insert+delete-only grant but Storage's DELETE endpoint
+ * silently no-ops for the publishable key in production testing — a random
+ * suffix per attempt sidesteps both instead of chasing why. An abandoned
+ * attempt's object is harmless clutter (see CONTEXT.md TODO "Storage/Room
+ * hygiene"), never referenced by any Room since only the path actually
+ * passed to `create_room` becomes `image_path`.
+ */
+export function uploadPathForRoom(code: string): string {
+  return `rooms/${code}/image-${nanoid(8)}`;
 }
 
 /**
- * The public CDN URL for a Room's image. `BUCKET` is intentionally not
+ * The public CDN URL for an object at `path` (as stored in a Room's
+ * `image_path` — see supabase/rooms.ts). `BUCKET` is intentionally not
  * exported — this is the one place that needs to know its name, so every
  * caller goes through here instead of each hand-rolling `/storage/v1/...`
  * (there is no anon SELECT policy on this bucket, per schema.sql, so this
  * public-object URL is the only way to read an image back; see ADR-0001).
  */
-export function getPublicImageUrl(code: string): string {
-  return supabase.storage.from(BUCKET).getPublicUrl(imagePathForRoom(code)).data.publicUrl;
+export function getPublicImageUrl(path: string): string {
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 /** The full pipeline: validate, decode, downscale, encode, upload. */
@@ -181,11 +199,8 @@ export async function normaliseAndUploadImage(file: File, code: string): Promise
 
   const { blob, contentType } = await encodeNormalisedImage(canvas);
 
-  const path = imagePathForRoom(code);
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType,
-    upsert: true,
-  });
+  const path = uploadPathForRoom(code);
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType });
   if (error) {
     throw new Error(`Image upload failed: ${error.message}`);
   }

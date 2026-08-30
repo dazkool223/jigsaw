@@ -64,44 +64,73 @@ A per-device identity (name + cursor color) persisted locally. Cosmetic only —
 > proceeds. Milestones and file layout refer to `i-want-to-create-recursive-bentley.md`
 > (the implementation plan). Last updated: 2026-08-30.
 
-### M1 — Single-player core, no network/Supabase — **DONE**
+### M1 — Single-player core, no network/Supabase — **DONE, live-verified**
 - [x] Scaffold, `config.ts`, shared `types.ts` contract
 - [x] Puzzle geometry: seeded RNG, shared Edge generation (interlock invariant), grid fitting, scatter — `puzzle/rng.ts edges.ts geometry.ts layout.ts` (all unit-tested)
-- [x] Texture baking into atlases with seam fix — `puzzle/textures.ts` (unit-tested; visually confirmed seamless)
-- [x] Drag/zoom/pan/pinch input — `render/interactions.ts viewport.ts` (unit-tested + real-mouse-drag verified)
+- [x] Texture baking into atlases with seam fix — `puzzle/textures.ts` (unit-tested; visually confirmed seamless with a real photo)
+- [x] Drag/zoom/pan/pinch input — `render/interactions.ts viewport.ts` (unit-tested + real-mouse-drag verified against the live-rendered board, not just a synthetic harness)
 - [x] Snap/Merge/Completion, held-Group deferral — `game/state.ts snap.ts` (unit-tested)
 - [x] `host.ts` + `client.ts` over an in-process loopback transport — `game/loopback.ts` (unit-tested)
-- [x] **PixiJS renderer wired to the board** — `render/board.ts` + `render/cursors.ts`, mounted from `app.tsx`'s `BoardMount`. This was the one missing piece as of 2026-08-30 (app.tsx had a literal `TODO(wiring)` stub); implemented and verified this session via a throwaway smoke harness (real loopback Host+Client, real Pixi renderer, real mouse drag): pieces scatter, interlock, bake seamlessly, and a full grab/move/drop/snap/merge solve reaches Completion with zero console errors.
-- [ ] 500-Piece Chrome-perf FPS check (target 60fps) — not yet run
+- [x] **PixiJS renderer wired to the board** — `render/board.ts` + `render/cursors.ts`, mounted from `app.tsx`'s `BoardMount`. Real end-to-end run confirmed: a user's own photo (`src/puzzle/sample.png`) scatters into correctly-interlocking pieces, drags smoothly, and a real drag's resulting offset round-trips through the real Host into a real Supabase Snapshot.
+- [ ] 500-Piece Chrome-perf FPS check (target 60fps) — not yet run (tested at ~24/~100 pieces only so far)
 
-### M2 — Supabase Rooms + persistence — **code complete, unverified live**
-- [x] `supabase/schema.sql` (table + RPCs + bucket policy) — written, **not yet applied to any Supabase project**
-- [x] Image normalisation & upload — `supabase/storageUpload.ts` (unit-tested)
+### M2 — Supabase Rooms + persistence — **DONE, live-verified against a real project**
+- [x] `supabase/schema.sql` (table + RPCs + bucket policy) — applied to a real project (`uxkjkltmammwfsdvyfwv.supabase.co`)
+- [x] Image normalisation & upload — `supabase/storageUpload.ts` — **redesigned this session, see "Storage bug" below**
 - [x] Room links / hash routing — `ui/routing.ts` (unit-tested)
-- [x] Debounced Snapshot save (`SnapshotScheduler`) — `supabase/snapshot.ts`
-- [x] Epoch-guarded claim-Host + resume flow — `supabase/rooms.ts`, wired in `app.tsx`'s `RoomSessionController`
-- [ ] **Live verification blocked**: no `.env.local` exists yet (`.env.example` only), so `createRoom`/`getRoom`/`claim_host` have never run against a real project. Create-a-room and cross-device resume are unverified.
+- [x] Debounced Snapshot save (`SnapshotScheduler`) — confirmed live: a real drag's Group offset was read back from `get_room` after the debounce window
+- [x] Epoch-guarded claim-Host + resume flow — confirmed live: creating a Room does NOT auto-host (per ADR-0001, "explicit Resume puzzle button"); closing the Host tab and reloading correctly shows "Host disconnected — progress is saved" / Resume puzzle, exactly per plan
+- [x] Cross-device resume — the "host_epoch increments on each claim" mechanism observed directly (epoch went 0→1→2 across create/resume/re-resume in testing)
 
-### M3 — WebRTC multiplayer — **code complete, unverified live**
+#### Storage bug found + fixed this session (real, not hypothetical)
+Live testing surfaced a genuine design conflict, not a setup mistake: the original upload code used
+`upsert: true` so a user could re-pick an image before clicking "Create puzzle". Supabase Storage's
+`upsert` needs a **SELECT** policy internally to check-and-replace — but this schema deliberately grants
+**no SELECT** on `storage.objects` (ADR-0001: a SELECT policy would let the bundled publishable key call
+`storage.list('rooms')` and enumerate every Room code). So `upsert: true` was guaranteed to fail RLS on
+any project using this schema, not just a misconfigured one. A delete-then-insert alternative was tried
+next (only needs DELETE, not SELECT) — the RLS policy and table grant were both verified correct via
+direct SQL (`set role anon; delete ... returning`, which reached the row), but Supabase Storage's DELETE
+**endpoint** silently no-ops for the publishable key in production (200 OK, zero rows removed) — a
+platform-side quirk, not a policy bug. **Fix**: every upload now gets a fresh random-suffixed path
+(`uploadPathForRoom()` in `storageUpload.ts`, `rooms/<code>/image-<random>`) instead of overwriting in
+place; the bucket grants INSERT only, nothing else. `create_room`'s `image_path` already supported an
+arbitrary path per-Room, so no schema/RPC shape changed — only `storageUpload.ts`, `UploadForm.tsx`
+(uses the upload's returned path instead of recomputing one), `app.tsx` (reads `room.image_path` instead
+of reconstructing from `code`), and `schema.sql`'s storage policies (INSERT-only now) changed.
+
+### M3 — WebRTC multiplayer — **core path DONE, live-verified two-window on localhost**
 - [x] Signaling, peer wrapper, Host/Guest net wiring — `net/signaling.ts peer.ts hostNet.ts guestNet.ts` (unit-tested with mocked `RTCPeerConnection`)
-- [x] Live cursors — `render/cursors.ts` `CursorLayer`, plus `Host.getCursors()`/`getPlayerId()` (added this session — `Host` was missing these, causing a `tsc` unused-field error; `Client` already had the equivalent)
+- [x] **Live two-browser-context test**: Host creates+claims a Room; a second browser context opens the same URL, connects via real Supabase Realtime signaling + real WebRTC over localhost, and lands directly on the board (no Resume screen, since a Host is online) — both sides show an identical scattered board and a synced `PLAYERS 2/8` roster with correct `(you)` labelling on each side.
+- [x] Live cursors — `render/cursors.ts` `CursorLayer`, plus `Host.getCursors()`/`getPlayerId()` (added this session — `Host` was missing these, causing a `tsc` unused-field error; `Client` already had the equivalent). Not yet visually confirmed moving live (roster sync was; cursor-glyph movement wasn't specifically checked).
 - [x] Grab locks, optimistic drag + reconciliation, MOVE relay — `game/host.ts client.ts` (unit-tested, including a regression test for a MOVE-relay gap found and fixed in a prior session)
-- [x] Resync (30s timer + Guest-pull on seq gap) — implemented
-- [x] Reconnection / Host-disconnect / deposed-Host / 8-player-cap UI — `ui/ConnectionOverlay.tsx DeposedOverlay.tsx ResumeHostScreen.tsx`
-- [ ] **Live verification blocked** (same Supabase gap as M2, plus needs real browser windows): two-window localhost, LAN, cross-network STUN-only failure UX, simultaneous-grab race, drop-against-held-Group, Host tab close + resume, sleeping-Host-wakes-deposed — none of these have been run for real yet.
+- [x] Resync (30s timer + Guest-pull on seq gap) — implemented, not separately live-tested
+- [x] Reconnection / Host-disconnect / deposed-Host / 8-player-cap UI — `ui/ConnectionOverlay.tsx DeposedOverlay.tsx ResumeHostScreen.tsx`; Host-disconnect-then-resume path live-confirmed (see M2)
+- [ ] **Not yet live-tested**: LAN/cross-network (only localhost, where ICE always succeeds, has been tried), STUN-only failure UX, simultaneous-grab race, drop-against-held-Group, sleeping-Host-wakes-deposed, actual Guest-side drag (only Host-side dragging has been exercised so far).
 
 ### M4 — Polish — **partial**
 - [x] Confetti + stats on Completion — `ui/WinDialog.tsx`
 - [x] Ghost-image toggle (press "g") — added this session in `render/board.ts`
 - [x] Remote-motion lerp (`REMOTE_LERP_MS`) — `render/renderer.ts` + `render/cursors.ts`
 - [x] `pnpm build && vite build` succeeds (chunk-size warning only, expected from bundling Pixi)
+- [x] Fixed a real (if cosmetic) React warning in `PieceCountPicker.tsx`: `pillSelected` used longhand `borderColor` against a base style using shorthand `border`, which React flags as a styling-bug risk on rerender — both now use the `border` shorthand.
 - [ ] Piece bevels/shadows — not started
 - [ ] Mobile touch/pinch — pointer-event plumbing exists in `interactions.ts` but untested on an actual touch device
 - [ ] Vercel deploy — not started
 
-### Current blocker (do this next)
-**No Supabase project is provisioned.** `.env.local` doesn't exist, and `supabase/schema.sql` has never been run anywhere. Until that happens:
-- The Home screen renders and works standalone, but "Create puzzle" will fail (no RPCs to call).
-- M2 and M3's live-verification checklists above can't be attempted.
+### Environment note (real gotcha hit this session, worth knowing)
+This repo lives at `C:\Users\neeku\programs\projects\jigsaw`, with a **git worktree checked out inside
+it** at `.claude\worktrees\jigsaw-domain-model` (a nested copy of the same repo on a different branch).
+A `pnpm dev`/Vite process started from the worktree earlier in a session can keep running in the
+background and squat on a dev-server port; a later `pnpm dev` from the main repo can appear to start
+fine while the *old worktree process* is still the one actually answering that port, silently serving
+stale code with no error. If browser-tested behavior doesn't match what's in the file on disk, check
+`Get-NetTCPConnection -LocalPort <port>` → `Get-CimInstance Win32_Process` for the PID's actual
+`CommandLine` before assuming the code is wrong.
 
-Next concrete steps: create a Supabase project → run `supabase/schema.sql` in its SQL editor → create the public `puzzles` storage bucket → copy `.env.example` to `.env.local` with the project's URL/publishable key → re-test Home → Create → Room → (second browser window) Join.
+### Current status
+Both `main` and the `feat/jigsaw-implementation` worktree branch are live-verified end-to-end against a
+real Supabase project (`uxkjkltmammwfsdvyfwv.supabase.co`) as of 2026-08-30: upload → create Room → claim
+Host → drag a piece → Snapshot persists → disconnect/resume → second browser joins as Guest over real
+WebRTC, all confirmed working with a real photo. Remaining gaps are the M3 edge cases listed above, M4
+polish items, and the 500-piece performance check.

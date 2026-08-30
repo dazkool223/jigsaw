@@ -59,7 +59,7 @@ const styles: Record<string, CSSProperties> = {
   },
   pillSelected: {
     background: "#4363d8",
-    borderColor: "#4363d8",
+    border: "1px solid #4363d8",
     color: "#ffffff",
   },
 };
