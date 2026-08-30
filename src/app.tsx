@@ -260,7 +260,7 @@ class RoomSessionController {
       return;
     }
 
-    const imageUrl = getPublicImageUrl(room.code);
+    const imageUrl = getPublicImageUrl(room.image_path);
     let dims: { width: number; height: number };
     try {
       dims = await loadImageDimensions(imageUrl);

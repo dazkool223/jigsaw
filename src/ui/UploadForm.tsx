@@ -42,7 +42,7 @@ export function UploadForm({ code, uploaded, onUploaded }: UploadFormProps) {
       try {
         const { path } = await normaliseAndUploadImage(file, code);
         setStatusText("Finishing up…");
-        const { width, height } = await loadImageDimensions(code);
+        const { width, height } = await loadImageDimensions(path);
         setPhase("idle");
         setStatusText("");
         onUploaded({ path, width, height });
@@ -108,8 +108,8 @@ export function UploadForm({ code, uploaded, onUploaded }: UploadFormProps) {
   );
 }
 
-async function loadImageDimensions(code: string): Promise<{ width: number; height: number }> {
-  const url = getPublicImageUrl(code);
+async function loadImageDimensions(path: string): Promise<{ width: number; height: number }> {
+  const url = getPublicImageUrl(path);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });

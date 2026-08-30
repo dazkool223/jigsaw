@@ -246,45 +246,52 @@ grant execute on function public.save_snapshot(text, int, jsonb, boolean) to ano
 --
 -- Public read (anyone with the URL — same trust level as the Room code
 -- itself) so any Player's browser can fetch the puzzle image directly from
--- Storage's CDN without another RPC round-trip. Anon may insert/update
--- objects under this bucket since normalisation happens client-side before a
--- Room row even exists; `create_room` doesn't gate the upload, so this is
--- intentionally as open as the Room code itself.
+-- Storage's CDN without another RPC round-trip. Anon may only INSERT into
+-- this bucket — no SELECT, UPDATE, or DELETE — since normalisation happens
+-- client-side before a Room row even exists; `create_room` doesn't gate the
+-- upload, so insert is intentionally as open as the Room code itself.
 --
 -- !! NO anon SELECT POLICY ON storage.objects — THIS IS DELIBERATE. !!
--- Object paths are `rooms/<code>/image`, so the path CONTAINS the credential.
--- A select policy on this bucket would let anyone holding the bundled
--- publishable key call storage.list('rooms') and enumerate every Room code — reopening exactly
--- the enumeration hole that ADR-0001 closes at the table level, and handing the
--- attacker get_room()/save_snapshot() access to every board. Public-bucket
--- reads go through /object/public/<bucket>/<path>, which does not consult RLS,
--- so dropping the select policy costs nothing: fetching a known path still
--- works, listing does not. Do not "fix" this by adding a select policy.
+-- Object paths are `rooms/<code>/image-<random>`, so the path requires the
+-- code (and, per object, a random suffix only `get_room()` can reveal) to
+-- construct. A select policy on this bucket would let anyone holding the
+-- bundled publishable key call storage.list('rooms') and enumerate every
+-- Room code — reopening exactly the enumeration hole that ADR-0001 closes at
+-- the table level, and handing the attacker get_room()/save_snapshot()
+-- access to every board. Public-bucket reads go through
+-- /object/public/<bucket>/<path>, which does not consult RLS, so dropping
+-- the select policy costs nothing: fetching a known path still works,
+-- listing does not. Do not "fix" this by adding a select policy.
+--
+-- This is also why every upload gets a fresh, never-reused path
+-- (uploadPathForRoom() in storageUpload.ts) instead of overwriting
+-- `rooms/<code>/image` in place: Storage's own overwrite mechanisms both
+-- turned out to need more than INSERT. `upsert: true` needs a SELECT policy
+-- internally (ruled out above); a delete-then-insert alternative should
+-- work with INSERT+DELETE in principle, but Storage's DELETE endpoint
+-- silently no-ops for the publishable key in production testing (returns
+-- 200 with zero rows removed, even with a matching, verified-correct RLS
+-- policy and table grant) — so this schema grants INSERT only, and the
+-- client sidesteps overwriting entirely. An abandoned upload attempt (user
+-- re-picks the image before clicking "Create puzzle") is harmless orphaned
+-- clutter, same tradeoff as CONTEXT.md's "Storage/Room hygiene" TODO.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 insert into storage.buckets (id, name, public)
 values ('puzzles', 'puzzles', true)
 on conflict (id) do nothing;
 
--- Explicitly remove the enumerable read policy if an older run of this file
--- (or a dashboard click) ever created one.
+-- Explicitly remove policies an older run of this file (or a dashboard
+-- click) may have created — this bucket is INSERT-only now.
 drop policy if exists "puzzles: anon can read" on storage.objects;
+drop policy if exists "puzzles: anon can overwrite" on storage.objects;
+drop policy if exists "puzzles: anon can delete for re-upload" on storage.objects;
 
 drop policy if exists "puzzles: anon can upload" on storage.objects;
 create policy "puzzles: anon can upload"
   on storage.objects
   for insert
   to anon
-  with check (bucket_id = 'puzzles');
-
--- Allow overwriting rooms/<code>/image (upload uses upsert: true so a retry
--- or re-normalisation of the same Room's image replaces the object in place).
-drop policy if exists "puzzles: anon can overwrite" on storage.objects;
-create policy "puzzles: anon can overwrite"
-  on storage.objects
-  for update
-  to anon
-  using (bucket_id = 'puzzles')
   with check (bucket_id = 'puzzles');
 
 
