@@ -334,6 +334,56 @@ input {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   Place card — who's sitting down. The swatch is this device's real cursor
+   colour, so the name reads as attached to the marker that moves on the board.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.placecard {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  border: 1px solid var(--chip-edge);
+  border-radius: var(--r-sm);
+  background: rgba(18, 39, 31, 0.07);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14);
+  transition: box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.placecard:focus-within {
+  border-color: var(--flag);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 2px rgba(214, 85, 47, 0.25);
+}
+
+.placecard__dot {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.placecard__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.placecard__input:focus {
+  outline: none;
+}
+
+.placecard__input:disabled {
+  opacity: 0.5;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    THE SIGNATURE — primary action as a die-cut puzzle piece.
    A blank notched into the left edge, a tab bulging from the right. The
    silhouette is a real mask, so the drop shadow follows the piece outline
@@ -679,6 +729,130 @@ input {
   background: #fff;
   color: var(--ink);
   font-size: 13.5px;
+}
+
+/* ── Box art: the lid propped up beside the table ── */
+
+.boxart {
+  width: 208px;
+  padding: 9px 10px 10px;
+}
+
+/* Gap belongs to the art, not the header — collapsed, the tag is the header. */
+.boxart__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.boxart__toggle {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-bottom: 1px dashed transparent;
+}
+
+.boxart__toggle:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink-faint);
+}
+
+/* Same recessed art window as the lid's well, at tag scale. */
+.boxart__art {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  border: 0;
+  padding: 0;
+  border-radius: var(--r-sm);
+  background: var(--felt-deep);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.boxart__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.boxart__cut {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* The enlarge affordance only surfaces on hover — the picture is the point. */
+.boxart__cue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(18, 39, 31, 0.78);
+  color: var(--chip-hi);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.boxart__art:hover .boxart__cue,
+.boxart__art:focus-visible .boxart__cue {
+  opacity: 1;
+}
+
+/* Fixed, not absolute: the tag lives inside .chrome, which is itself
+   positioned — an absolute overlay would size to the tag, not the table. */
+.boxart-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: rgba(9, 22, 17, 0.86);
+  backdrop-filter: blur(3px);
+}
+
+/* Shrink-wraps the photo rather than boxing it: a fixed landscape frame
+   pillarboxes a phone shot into two wide bands of felt, and here — unlike the
+   home screen's well, which has a lid to keep square — there is nothing the
+   extra width is holding up. */
+.boxart-zoom__frame {
+  position: relative;
+  line-height: 0;
+  border-radius: var(--r-md);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 6px 0 var(--chip-edge),
+    0 22px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.boxart-zoom__img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(92vw, 1100px);
+  max-height: 76vh;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

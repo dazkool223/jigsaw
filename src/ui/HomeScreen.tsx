@@ -8,10 +8,12 @@
  * metaphor encodes the information architecture rather than decorating it.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PIECE_PRESETS } from "../config";
 import { createRoom, generateRoomCode } from "../supabase/rooms";
+import { buildPuzzle } from "../puzzle/geometry";
 import { fitGrid } from "../puzzle/layout";
+import { NameField } from "./NameField";
 import { PieceCountPicker } from "./PieceCountPicker";
 import { UploadForm, type UploadedImage } from "./UploadForm";
 import { PuzzlePreview } from "./PuzzlePreview";
@@ -35,6 +37,22 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
   // on this particular photo might really be 494 in a 26 x 19 grid. Printed
   // like a box-back spec once we know the photo's aspect.
   const fitted = uploaded ? fitGrid(uploaded.width, uploaded.height, pieceTarget) : null;
+
+  // The exact geometry the Room will be cut with, so PuzzlePreview can draw
+  // the real cut. `imageUrl` only travels into the definition — the outlines
+  // depend on seed and grid alone — so the Room code stands in for it here,
+  // before the upload has a public URL.
+  const previewPuzzle = useMemo(
+    () =>
+      uploaded && fitted
+        ? buildPuzzle(
+            { imageUrl: code, seed, rows: fitted.rows, cols: fitted.cols },
+            uploaded.width,
+            uploaded.height,
+          )
+        : null,
+    [uploaded, fitted?.rows, fitted?.cols, code, seed],
+  );
 
   const handleCreate = async () => {
     if (!uploaded) return;
@@ -70,15 +88,8 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
             uploaded={uploaded}
             onUploaded={setUploaded}
             overlay={
-              uploaded && fitted ? (
-                <PuzzlePreview
-                  imageUrl={code}
-                  imageWidth={uploaded.width}
-                  imageHeight={uploaded.height}
-                  seed={seed}
-                  rows={fitted.rows}
-                  cols={fitted.cols}
-                />
+              previewPuzzle ? (
+                <PuzzlePreview puzzle={previewPuzzle} className="well__cut" />
               ) : null
             }
           />
@@ -99,6 +110,14 @@ export function HomeScreen({ onRoomCreated }: HomeScreenProps) {
                 ? `${fitted.rows * fitted.cols} pieces · ${fitted.cols} × ${fitted.rows} grid`
                 : "Exact count is set by your photo's shape"}
             </p>
+          </div>
+
+          <div className="rule" />
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <span className="stamp">Your name</span>
+            <NameField disabled={creating} />
+            <p className="spec">Shown to everyone you share the link with.</p>
           </div>
 
           {error && <p className="note">{error}</p>}

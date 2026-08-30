@@ -114,6 +114,11 @@ of reconstructing from `code`), and `schema.sql`'s storage policies (INSERT-only
 - [x] Remote-motion lerp (`REMOTE_LERP_MS`) — `render/renderer.ts` + `render/cursors.ts`
 - [x] `pnpm build && vite build` succeeds (chunk-size warning only, expected from bundling Pixi)
 - [x] Fixed a real (if cosmetic) React warning in `PieceCountPicker.tsx`: `pillSelected` used longhand `borderColor` against a base style using shorthand `border`, which React flags as a styling-bug risk on rerender — both now use the `border` shorthand.
+- [x] UI revamp around a "card table" visual direction — `ui/theme.css` (design tokens, chipboard lid / felt table language), all inline styles removed from `app.tsx`
+- [x] Live cut preview before creating — `ui/PuzzlePreview.tsx`, drawn over the box art in the home screen's well. Draws the **real** outlines (same `Puzzle` the board is built from), so the seed is chosen up front in `HomeScreen` and reused at create time.
+- [x] "Start a new puzzle" from inside a Room — `app.tsx` board chrome. Exposed and fixed a real data-loss bug: `teardownHost` only cancelled the pending Snapshot timer, so leaving a Room dropped up to `SNAPSHOT_DEBOUNCE_MS` of moves. `dispose()` now calls `flushNow()` first (verified live: 25/25 Group offsets persisted after leaving ~1.5s post-drag).
+- [x] Name yourself before creating — `ui/NameField.tsx` on the home screen, writing through to `renameIdentity`. Guests still rename inline in `PlayerList`. Cap shared via `PLAYER_NAME_MAX_LENGTH` (config.ts).
+- [x] Box art during play — `ui/BoxArt.tsx`, the lid propped up beside the table: source photo + real cut lines in the board chrome, collapsible, click to enlarge (Esc/backdrop closes). `PuzzlePreview` skips the cut below a 14px on-screen Cell, so the thumbnail shows a clean photo at 500 pieces and draws the cut once enlarged.
 - [ ] Piece bevels/shadows — not started
 - [ ] Mobile touch/pinch — pointer-event plumbing exists in `interactions.ts` but untested on an actual touch device
 - [ ] Vercel deploy — not started
@@ -129,7 +134,7 @@ stale code with no error. If browser-tested behavior doesn't match what's in the
 `CommandLine` before assuming the code is wrong.
 
 ### Current status
-Both `main` and the `feat/jigsaw-implementation` worktree branch are live-verified end-to-end against a
+`main` is live-verified end-to-end against a
 real Supabase project (`uxkjkltmammwfsdvyfwv.supabase.co`) as of 2026-08-30: upload → create Room → claim
 Host → drag a piece → Snapshot persists → disconnect/resume → second browser joins as Guest over real
 WebRTC, all confirmed working with a real photo. Remaining gaps are the M3 edge cases listed above, M4

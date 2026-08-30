@@ -36,6 +36,7 @@ import { mountBoard } from "./render/board";
 
 import { HomeScreen } from "./ui/HomeScreen";
 import { BoardMount } from "./ui/BoardMount";
+import { BoxArt } from "./ui/BoxArt";
 import { PlayerList } from "./ui/PlayerList";
 import { ShareLink } from "./ui/ShareLink";
 import { ConnectionOverlay } from "./ui/ConnectionOverlay";
@@ -626,6 +627,9 @@ function RoomScreenController({ code }: { code: string }) {
             <button type="button" className="tag tag--btn" onClick={navigateHome}>
               Start a new puzzle
             </button>
+            {/* The lid propped up beside the table — the finished picture to
+                check pieces against. */}
+            <BoxArt puzzle={state.session.puzzle} imageUrl={state.session.imageUrl} />
           </div>
           <div className="chrome chrome--right">
             <PlayerList

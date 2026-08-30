@@ -131,6 +131,13 @@ export const JPEG_FALLBACK_QUALITY = 0.85;
  */
 export const MAX_PLAYERS = 8;
 
+/**
+ * Display-name cap. A name rides every JOIN and then sits in a fixed-width
+ * chip in the board chrome, so this is a layout bound as much as a wire one.
+ * Applies wherever a name can be typed — the home screen and the in-room list.
+ */
+export const PLAYER_NAME_MAX_LENGTH = 24;
+
 /** Cursor / mid-drag update rate. Higher = smoother remote motion, more bandwidth. */
 export const STREAM_HZ = 25;
 

@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import type { Player, PlayerId } from "../types";
-import { MAX_PLAYERS } from "../config";
+import { MAX_PLAYERS, PLAYER_NAME_MAX_LENGTH } from "../config";
 
 export type PlayerListProps = {
   readonly players: readonly Player[];
@@ -73,6 +73,7 @@ function PlayerRow({
           autoFocus
           className="players__input"
           value={draft}
+          maxLength={PLAYER_NAME_MAX_LENGTH}
           aria-label="Your name"
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
