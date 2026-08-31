@@ -32,6 +32,7 @@ import { Host } from "./game/host";
 import { Client } from "./game/client";
 import { HostNet } from "./net/hostNet";
 import { GuestNet } from "./net/guestNet";
+import { primeIceServers } from "./net/iceServers";
 import { mountBoard } from "./render/board";
 
 import { HomeScreen } from "./ui/HomeScreen";
@@ -109,7 +110,11 @@ type RoomState =
   | {
       readonly kind: "connect-failed";
       readonly session: PuzzleSession;
-      readonly status: { readonly state: "failed"; readonly message: string };
+      readonly status: {
+        readonly state: "failed";
+        readonly message: string;
+        readonly hint?: string;
+      };
     }
   | {
       readonly kind: "room-full";
@@ -178,6 +183,10 @@ class RoomSessionController {
   ) {}
 
   start(): void {
+    // Fetch TURN credentials alongside the Room load rather than on the
+    // connect path, where the round trip would sit between the player
+    // pressing Join and anything happening.
+    primeIceServers();
     void this.loadRoom();
   }
 
@@ -339,7 +348,13 @@ class RoomSessionController {
           this.setState({ kind: "connecting", session });
           break;
         case "failed":
-          this.setState({ kind: "connect-failed", session, status: { state: "failed", message: status.message } });
+          this.setState({
+            kind: "connect-failed",
+            session,
+            // message AND hint come from the transport: it is the only layer
+            // that knows which failure this was (see net/peer.ts).
+            status: { state: "failed", message: status.message, hint: status.hint },
+          });
           break;
         case "room_full":
           this.setState({ kind: "room-full", session, status: { state: "roomFull", message: status.message } });

@@ -44,6 +44,58 @@ Supabase provides three things here: the `rooms` table (room/session state), a p
 
 No further Supabase configuration (auth providers, extra tables, etc.) is needed - the anon key is safe to ship in the client bundle because every table access goes through the RPCs described above.
 
+## Set up a TURN relay
+
+Skip this and the app still builds and runs, but a large share of players will
+not be able to join each other. It is the difference between "works on my
+network" and "works".
+
+Players connect peer-to-peer, so their browsers have to find a route to each
+other through whatever NAT each is behind. STUN alone solves the easy half.
+It reports the address a NAT showed the STUN server, and a symmetric NAT hands
+out a different external port for every destination, so that address is not
+where the other side must send. Carrier-grade NAT on mobile data works this
+way, and so do many ISP and office networks. Because the host is the one fixed
+endpoint every guest must reach, a host behind such a NAT is unreachable by
+every guest, from every network. Guests switching to Wi-Fi does not help. A
+network that blocks UDP outright fails the same way, with `turns:` on 443 as
+the only way out.
+
+The full incident this caused is written up in
+`docs/rca/0001-guests-cannot-connect-across-networks.md`.
+
+Pick a relay: a hosted one (Cloudflare Realtime TURN, Twilio Network Traversal,
+Metered, Xirsys) or your own [coturn](https://github.com/coturn/coturn) on a
+small VPS. Then wire it up one of two ways.
+
+**Production - short-lived credentials.** TURN credentials must not go in a
+`VITE_` variable: everything so prefixed is compiled into the bundle and served
+to every visitor, so a static password is a free relay for whoever reads it.
+`supabase/functions/turn-credentials/` is a ready-to-deploy Edge Function that
+mints expiring credentials with coturn's REST scheme and keeps the secret
+server-side. Its header comments carry the deploy steps. Then set:
+
+```
+VITE_TURN_CREDENTIALS_URL=https://your-project-ref.functions.supabase.co/turn-credentials
+```
+
+**Local testing - static credentials.** Fine against a coturn on your own
+machine, not for anything you share:
+
+```
+VITE_TURN_URLS=turn:localhost:3478?transport=udp,turn:localhost:3478?transport=tcp
+VITE_TURN_USERNAME=your-turn-user
+VITE_TURN_CREDENTIAL=your-turn-password
+```
+
+List a TCP URL and a `turns:` URL on 443 alongside UDP. UDP is faster when it
+is available, and on the networks that block it nothing else gets through.
+
+To check what the browser actually negotiated, open the console: every
+connection logs its gathered candidate types on completion. Seeing `relay`
+among them means TURN is working. Seeing only `host` and `srflx` means the app
+is still one strict NAT away from failing.
+
 ## Deploy to Vercel
 
 The app is a static Vite build with no server-side code, so it deploys as a static site.
@@ -58,7 +110,8 @@ The app is a static Vite build with no server-side code, so it deploys as a stat
 2. Vercel should auto-detect the Vite framework preset. If configuring manually, use:
    - **Build command**: `npm run build`
    - **Output directory**: `dist`
-3. Add the same two environment variables from your `.env.local` to the Vercel project (**Settings -> Environment Variables**), for Production (and Preview, if you want preview deployments to work):
+3. Add the environment variables from your `.env.local` to the Vercel project (**Settings -> Environment Variables**), for Production (and Preview, if you want preview deployments to work):
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_TURN_CREDENTIALS_URL` - see "Set up a TURN relay" above. Without it the deployed app is peer-to-peer over STUN only, which fails for anyone behind a symmetric NAT.
 4. Deploy (`vercel --prod`, or push to your production branch if the project is connected to Git). Because everything is client-side and peer-to-peer, no additional server configuration is required - Vercel only needs to serve the static build.

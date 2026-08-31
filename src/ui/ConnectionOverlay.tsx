@@ -3,10 +3,13 @@
  * would otherwise leave the user staring at a silent hang:
  *
  *  - connecting: a simple, honest "Connecting" - no fake progress bar.
- *  - failed: the transport's own message verbatim (this is the 15s
- *    STUN-only timeout from config.ts's CONNECT_TIMEOUT_MS - see peer.ts).
- *    Copy is upfront that some networks can't complete a STUN-only
- *    connection, with a Retry action.
+ *  - failed: the transport's own message AND its own hint, both verbatim.
+ *    This component deliberately writes no diagnosis of its own. It used to
+ *    end every failure with "Switching to Wi-Fi, or trying from a different
+ *    network, usually gets through", which is true for exactly one of the
+ *    several failures that land here and actively misleading for the rest -
+ *    it sent real players off changing networks over a host that had gone
+ *    offline. `peer.ts` knows which failure happened; it supplies the words.
  *  - roomFull: the transport's own message verbatim, no Retry (retrying
  *    won't change the player count).
  */
@@ -18,7 +21,12 @@
 // three variants are still exactly the states TransportStatus can report.
 export type ConnectionOverlayStatus =
   | { readonly state: "connecting" }
-  | { readonly state: "failed"; readonly message: string }
+  | {
+      readonly state: "failed";
+      readonly message: string;
+      /** Advice from the transport for THIS failure. Omitted when there is none worth giving. */
+      readonly hint?: string;
+    }
   | { readonly state: "roomFull"; readonly message: string };
 
 export type ConnectionOverlayProps = {
@@ -42,14 +50,12 @@ export function ConnectionOverlay({ status, onRetry, onBackToHome }: ConnectionO
         {status.state === "failed" && (
           <>
             <div className="card__body">
-              {/* Title names the situation, body is the transport's own words,
-                  hint adds only the fix - peer.ts already states the cause, so
-                  repeating "mobile networks" here would say it three times. */}
+              {/* Title names the situation; body and hint are both the
+                  transport's words, because only it knows which failure this
+                  was. Nothing here is hard-coded advice. */}
               <h2 className="card__title">Couldn't join this puzzle</h2>
               <p className="card__text">{status.message}</p>
-              <p className="card__hint">
-                Switching to Wi-Fi, or trying from a different network, usually gets through.
-              </p>
+              {status.hint ? <p className="card__hint">{status.hint}</p> : null}
             </div>
             <div className="card__tray">
               <div className="card__actions">

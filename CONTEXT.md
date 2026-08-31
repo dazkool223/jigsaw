@@ -62,7 +62,7 @@ A per-device identity (name + cursor color) persisted locally. Cosmetic only - n
 
 > Status snapshot, not glossary - update this section (not the vocabulary above) as work
 > proceeds. Milestones and file layout refer to `i-want-to-create-recursive-bentley.md`
-> (the implementation plan). Last updated: 2026-08-30.
+> (the implementation plan). Last updated: 2026-08-31.
 
 ### M1 - Single-player core, no network/Supabase - **DONE, live-verified**
 - [x] Scaffold, `config.ts`, shared `types.ts` contract
@@ -106,7 +106,40 @@ of reconstructing from `code`), and `schema.sql`'s storage policies (INSERT-only
 - [x] Grab locks, optimistic drag + reconciliation, MOVE relay - `game/host.ts client.ts` (unit-tested, including a regression test for a MOVE-relay gap found and fixed in a prior session)
 - [x] Resync (30s timer + Guest-pull on seq gap) - implemented, not separately live-tested
 - [x] Reconnection / Host-disconnect / deposed-Host / 8-player-cap UI - `ui/ConnectionOverlay.tsx DeposedOverlay.tsx ResumeHostScreen.tsx`; Host-disconnect-then-resume path live-confirmed (see M2)
-- [ ] **Not yet live-tested**: LAN/cross-network (only localhost, where ICE always succeeds, has been tried), STUN-only failure UX, simultaneous-grab race, drop-against-held-Group, sleeping-Host-wakes-deposed, actual Guest-side drag (only Host-side dragging has been exercised so far).
+- [x] **NAT traversal + connect-failure diagnosis** - reworked after guests could not join across networks; see "Cross-network connect failure" below and `docs/rca/0001-guests-cannot-connect-across-networks.md`.
+- [ ] **Not yet live-tested**: cross-network with a real TURN server attached (the code path exists and is unit-tested, but no relay has been provisioned yet), simultaneous-grab race, drop-against-held-Group, sleeping-Host-wakes-deposed, actual Guest-side drag (only Host-side dragging has been exercised so far).
+
+#### Cross-network connect failure - root-caused and fixed
+Guests hit "Couldn't connect - this can happen on some mobile networks" and switching networks did not
+help, because the message was a guess rather than a diagnosis and the real cause was on the Host's side.
+Four defects, all fixed:
+
+1. **No TURN server.** ICE was one UDP STUN server. A Host behind a symmetric NAT (carrier-grade NAT on
+   mobile data is the common case) is unreachable by every Guest from every network, and a UDP-blocking
+   network has no fallback at all. `net/iceServers.ts` now resolves ICE servers at runtime, preferring an
+   endpoint that mints short-lived credentials (`supabase/functions/turn-credentials/`, deployable) over
+   static `VITE_TURN_*` values, which it accepts but warns about - a static TURN password in the bundle
+   would break ADR-0001's "nothing in the client is worth stealing". With neither set it still runs on
+   STUN and says so. **A relay still has to be provisioned for the fix to take effect in production.**
+2. **Trickled ICE candidates were dropped.** `addIceCandidate()` rejects while `remoteDescription` is
+   null, and candidates routinely beat the SDP they belong to; both sides discarded the rejection with
+   `void`. `Peer` now buffers them and flushes on `setRemoteDescription`, and `HostNet` buffers per Guest
+   for candidates that arrive before the offer. Harmless on localhost, fatal across NAT where the
+   reflexive candidate may be the only usable one.
+3. **Retrying was a no-op.** `HostNet` returned early on a repeat offer from a known `PlayerId`, which is
+   persisted per device - so "Try again" went unanswered until the Host's own timeout expired. A re-offer
+   now replaces the stale connection.
+4. **One message for every failure.** `Peer` now reports a `PeerFailureReason` (`no-answer`,
+   `no-candidates`, `ice-failed`, `channel-error`, `timeout`) with copy per reason, and
+   `ConnectionOverlay` prints the transport's words instead of a hard-coded "try Wi-Fi" line that was
+   wrong for most of them. `CONNECT_TIMEOUT_MS` went 15s -> 30s, with a separate 8s `ANSWER_TIMEOUT_MS`
+   for the case worth failing fast on (a stale Realtime presence entry pointing at a Host that is gone).
+
+**Why the suite never caught it:** `peer.test.ts`'s `RTCPeerConnection` fake accepted ICE candidates in
+any order and treated `setRemoteDescription` as a resolved no-op, so the ordering window did not exist in
+tests. The fakes now live in `net/testFakes.ts` and enforce both behaviours; `net/negotiation.test.ts`
+drives a real `HostNet` against a real `GuestNet` over a fake Realtime bus. Reverting either fix turns
+those tests red (checked).
 
 ### M4 - Polish - **partial**
 - [x] Confetti + stats on Completion - `ui/WinDialog.tsx`
