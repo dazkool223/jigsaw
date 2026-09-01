@@ -64,23 +64,26 @@ the only way out.
 The full incident this caused is written up in
 `docs/rca/0001-guests-cannot-connect-across-networks.md`.
 
-Pick a relay: a hosted one (Cloudflare Realtime TURN, Twilio Network Traversal,
-Metered, Xirsys) or your own [coturn](https://github.com/coturn/coturn) on a
-small VPS. Then wire it up one of two ways.
+This project uses [Cloudflare Realtime's TURN service](https://developers.cloudflare.com/realtime/turn/):
+managed, no VPS to run. In the Cloudflare dashboard, go to **Realtime -> TURN
+Service -> Create TURN App/Key**, which gives you a Turn Key ID and a Turn Key
+API Token. Then wire it up one of two ways.
 
 **Production - short-lived credentials.** TURN credentials must not go in a
 `VITE_` variable: everything so prefixed is compiled into the bundle and served
 to every visitor, so a static password is a free relay for whoever reads it.
 `supabase/functions/turn-credentials/` is a ready-to-deploy Edge Function that
-mints expiring credentials with coturn's REST scheme and keeps the secret
-server-side. Its header comments carry the deploy steps. Then set:
+calls Cloudflare's credential-generation endpoint and keeps the API token
+server-side, handing the browser only short-lived credentials. Its header
+comments carry the deploy steps. Then set:
 
 ```
 VITE_TURN_CREDENTIALS_URL=https://your-project-ref.functions.supabase.co/turn-credentials
 ```
 
-**Local testing - static credentials.** Fine against a coturn on your own
-machine, not for anything you share:
+**Local testing - static credentials.** Fine against a local
+[coturn](https://github.com/coturn/coturn) or a one-off Cloudflare-minted
+credential pasted in by hand, not for anything you share:
 
 ```
 VITE_TURN_URLS=turn:localhost:3478?transport=udp,turn:localhost:3478?transport=tcp

@@ -1,25 +1,28 @@
 /**
- * Mints short-lived TURN credentials for the browser.
+ * Mints short-lived TURN credentials for the browser, via Cloudflare Realtime's
+ * TURN service.
  *
  * WHY THIS EXISTS. Anything prefixed `VITE_` is compiled into the client
  * bundle and shipped to every visitor, so a static TURN username and password
  * put there is a free relay for anyone who opens devtools. ADR-0001's whole
  * premise is that the bundle holds nothing worth stealing. This function keeps
- * the long-lived secret server-side and hands out credentials that expire, so
- * that stays true once TURN is switched on.
+ * the long-lived secret (the Cloudflare Turn Key API Token) server-side and
+ * hands out credentials that expire, so that stays true once TURN is switched
+ * on.
  *
- * It implements coturn's REST API scheme ("use-auth-secret"), which every
- * coturn build supports and several hosted providers accept:
+ * Cloudflare mints and signs the credential itself - unlike coturn's
+ * "use-auth-secret" REST scheme, there is no HMAC to compute here. This
+ * function's only job is to hold the API token and relay Cloudflare's
+ * response, whose `{ iceServers }` shape already matches what
+ * `src/net/iceServers.ts` expects.
  *
- *   username   = "<unix expiry>:<label>"
- *   credential = base64( HMAC-SHA1( username, shared secret ) )
- *
- * coturn verifies the HMAC itself and needs no per-user database. The secret
- * never leaves this function.
+ * SET UP CLOUDFLARE
+ *   Dashboard -> Realtime -> TURN Service -> Create TURN App/Key. That gives
+ *   you a Turn Key ID and a Turn Key API Token; no server to run or maintain.
  *
  * DEPLOY
- *   supabase secrets set TURN_SECRET=<the same static-auth-secret as coturn>
- *   supabase secrets set TURN_URLS='turn:relay.example.com:3478?transport=udp,turn:relay.example.com:3478?transport=tcp,turns:relay.example.com:5349?transport=tcp'
+ *   supabase secrets set CLOUDFLARE_TURN_KEY_ID=<the Turn Key ID>
+ *   supabase secrets set CLOUDFLARE_TURN_API_TOKEN=<the Turn Key API Token>
  *   supabase functions deploy turn-credentials --no-verify-jwt
  *
  * Then set, in the app's environment:
@@ -28,11 +31,7 @@
  * `--no-verify-jwt` is deliberate: the app has no sign-in (ADR-0001), so there
  * is no JWT to verify. The Room code is the only credential in this system.
  * That means this endpoint is open, which is why credentials are short-lived
- * and why the TURN server itself should have a per-session quota configured.
- *
- * Include a TCP and a TLS-on-443 URL as above, not just UDP. Networks that
- * drop UDP entirely are one of the two failure modes this whole change exists
- * to fix, and only `turns:` on 443 reliably gets through them.
+ * and why Cloudflare's per-key request rate should be watched for abuse.
  */
 
 /** How long issued credentials stay valid. Long enough to join, short enough to be worthless if leaked. */
@@ -57,18 +56,6 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function hmacSha1Base64(secret: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
-  return btoa(String.fromCharCode(...new Uint8Array(signature)));
-}
-
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -77,25 +64,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  const secret = Deno.env.get("TURN_SECRET");
-  const urls = (Deno.env.get("TURN_URLS") ?? "")
-    .split(",")
-    .map((u) => u.trim())
-    .filter((u) => u.length > 0);
+  const keyId = Deno.env.get("CLOUDFLARE_TURN_KEY_ID");
+  const apiToken = Deno.env.get("CLOUDFLARE_TURN_API_TOKEN");
 
-  if (!secret || urls.length === 0) {
+  if (!keyId || !apiToken) {
     // The client treats any non-2xx as "no relay available" and carries on with
     // STUN, so a misconfiguration degrades instead of breaking the Room.
-    console.error("turn-credentials: TURN_SECRET and/or TURN_URLS are not set");
+    console.error("turn-credentials: CLOUDFLARE_TURN_KEY_ID and/or CLOUDFLARE_TURN_API_TOKEN are not set");
     return json({ error: "TURN is not configured" }, 503);
   }
 
-  const expiry = Math.floor(Date.now() / 1000) + TTL_SECONDS;
-  const username = `${expiry}:jigsaw`;
-  const credential = await hmacSha1Base64(secret, username);
+  let cfResponse: Response;
+  try {
+    cfResponse = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ttl: TTL_SECONDS }),
+      },
+    );
+  } catch (err) {
+    console.error(`turn-credentials: could not reach Cloudflare (${String(err)})`);
+    return json({ error: "TURN provider unreachable" }, 502);
+  }
 
-  return json({
-    iceServers: [{ urls, username, credential }],
-    ttlSeconds: TTL_SECONDS,
-  });
+  if (!cfResponse.ok) {
+    console.error(`turn-credentials: Cloudflare returned ${cfResponse.status}`);
+    return json({ error: "TURN provider error" }, 502);
+  }
+
+  const { iceServers } = (await cfResponse.json()) as { iceServers?: unknown };
+  if (!iceServers) {
+    console.error("turn-credentials: Cloudflare response had no iceServers");
+    return json({ error: "TURN provider error" }, 502);
+  }
+
+  return json({ iceServers, ttlSeconds: TTL_SECONDS });
 });
