@@ -112,11 +112,23 @@ function normaliseResponse(body: unknown): readonly RTCIceServer[] | undefined {
   return servers.length > 0 ? servers : undefined;
 }
 
+/**
+ * Supabase's own API gateway rejects every function call with no `apikey` (or
+ * `Authorization: Bearer`) header, independent of the function's own
+ * `--no-verify-jwt` setting - a bare `fetch(url)` gets a 401 from the gateway
+ * before it ever reaches turn-credentials. The publishable key already ships
+ * in the bundle for the Supabase client, so reusing it here costs nothing.
+ */
+function supabaseApiKeyHeaders(): HeadersInit {
+  const key = env("VITE_SUPABASE_PUBLISHABLE_KEY");
+  return key ? { apikey: key } : {};
+}
+
 async function fetchIceServers(url: string): Promise<CachedServers | undefined> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ICE_FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, headers: supabaseApiKeyHeaders() });
     if (!response.ok) {
       console.warn(`[ice] credentials endpoint returned ${response.status} - falling back to STUN only`);
       return undefined;
