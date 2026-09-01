@@ -138,7 +138,7 @@ export const MAX_PLAYERS = 8;
  */
 export const PLAYER_NAME_MAX_LENGTH = 24;
 
-/** Cursor / mid-drag update rate. Higher = smoother remote motion, more bandwidth. */
+/** Mid-drag (MOVE) update rate. Higher = smoother remote motion, more bandwidth. */
 export const STREAM_HZ = 25;
 
 /**

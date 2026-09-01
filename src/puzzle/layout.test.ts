@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SCATTER_MARGIN } from "../config";
-import { fitGrid, scatterOffsets } from "./layout";
+import { fitGrid, playAreaBounds, scatterOffsets } from "./layout";
 
 describe("fitGrid", () => {
   it("matches the documented 4:3 500-piece example: 26x19 = 494", () => {
@@ -100,5 +100,48 @@ describe("scatterOffsets", () => {
     const offsets = scatterOffsets(grid, 7);
     const distinctX = new Set(offsets.map((o) => o.x));
     expect(distinctX.size).toBeGreaterThan(1);
+  });
+});
+
+describe("playAreaBounds", () => {
+  const grid = fitGrid(800, 600, 24);
+
+  it("matches the rect scatterOffsets spreads pieces across (same margin math)", () => {
+    const bounds = playAreaBounds(grid);
+    const marginX = grid.imageW * SCATTER_MARGIN;
+    const marginY = grid.imageH * SCATTER_MARGIN;
+    expect(bounds).toEqual({
+      x: -marginX,
+      y: -marginY,
+      w: grid.imageW + marginX * 2,
+      h: grid.imageH + marginY * 2,
+    });
+  });
+
+  it("contains every scattered piece's world position", () => {
+    const bounds = playAreaBounds(grid);
+    const offsets = scatterOffsets(grid, 7);
+    let idx = 0;
+    for (let row = 0; row < grid.rows; row++) {
+      for (let col = 0; col < grid.cols; col++) {
+        const offset = offsets[idx++];
+        const worldX = col * grid.cellW + offset.x;
+        const worldY = row * grid.cellH + offset.y;
+        expect(worldX).toBeGreaterThanOrEqual(bounds.x - 1e-6);
+        expect(worldX).toBeLessThanOrEqual(bounds.x + bounds.w + 1e-6);
+        expect(worldY).toBeGreaterThanOrEqual(bounds.y - 1e-6);
+        expect(worldY).toBeLessThanOrEqual(bounds.y + bounds.h + 1e-6);
+      }
+    }
+  });
+
+  it("accepts a custom margin fraction", () => {
+    const bounds = playAreaBounds(grid, 0);
+    // toBeCloseTo, not toEqual: a zero margin computes -0 for x/y, which
+    // toEqual treats as distinct from 0 even though they're equal values.
+    expect(bounds.x).toBeCloseTo(0);
+    expect(bounds.y).toBeCloseTo(0);
+    expect(bounds.w).toBe(grid.imageW);
+    expect(bounds.h).toBe(grid.imageH);
   });
 });

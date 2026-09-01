@@ -16,11 +16,28 @@
  * state and never imports src/game or src/net.
  */
 
-import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
-import type { GameState, GroupId, PieceId, PlayerId, Point, Puzzle } from "../types";
+import { Application, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
+import type { GameState, GroupId, PieceId, Player, PlayerId, Point, Puzzle, Rect } from "../types";
 import { BAKE_SCALE, REMOTE_LERP_MS } from "../config";
 import type { CanvasLike, Frame } from "../puzzle/textures";
 import type { Viewport } from "./viewport";
+
+function hexToNumber(color: string): number {
+  const hex = color.startsWith("#") ? color.slice(1) : color;
+  const n = parseInt(hex, 16);
+  return Number.isFinite(n) ? n : 0x000000;
+}
+
+function unionRect(a: Rect, b: Rect): Rect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    w: Math.max(a.x + a.w, b.x + b.w) - x,
+    h: Math.max(a.y + a.h, b.y + b.h) - y,
+  };
+}
 
 export type PuzzleRendererOptions = {
   readonly width: number;
@@ -33,6 +50,14 @@ export type PuzzleRendererOptions = {
   readonly resolution?: number;
 };
 
+type BadgeEntry = {
+  readonly root: Container;
+  readonly bg: Graphics;
+  readonly label: Text;
+  holderId: PlayerId;
+  color: string;
+};
+
 type GroupEntry = {
   readonly container: Container;
   /** PieceIds already given a Sprite in this container - merges only add. */
@@ -43,6 +68,10 @@ type GroupEntry = {
   lerp: boolean;
   /** First sync must snap immediately even if it happens to be "remote". */
   initialized: boolean;
+  /** Union bbox (rest space) of every Piece in this Group - grows as pieces merge in. Anchors the held-by badge. */
+  localBbox: Rect | undefined;
+  /** "Who's holding this piece" badge - present only while held by someone other than the local player. */
+  badge: BadgeEntry | undefined;
 };
 
 /**
@@ -53,12 +82,13 @@ type GroupEntry = {
  */
 export class PuzzleRenderer {
   readonly app: Application;
-  /** Pan/zoom root: its transform IS the Viewport. Add overlays (e.g. CursorLayer) here. */
+  /** Pan/zoom root: its transform IS the Viewport. Add world-space overlays here. */
   readonly worldRoot: Container;
 
   private readonly groupEntries = new Map<GroupId, GroupEntry>();
   private pieceTextures = new Map<PieceId, Texture>();
   private pieceLocalPos = new Map<PieceId, Point>();
+  private pieceBbox = new Map<PieceId, Rect>();
   private puzzle: Puzzle | null = null;
 
   private readonly boardOutline: Graphics;
@@ -124,6 +154,7 @@ export class PuzzleRenderer {
 
     const pieceTextures = new Map<PieceId, Texture>();
     const pieceLocalPos = new Map<PieceId, Point>();
+    const pieceBbox = new Map<PieceId, Rect>();
     for (const piece of puzzle.pieces) {
       const frame = frames.get(piece.id);
       if (!frame) continue; // caller's atlas didn't cover this piece - skip, don't crash the scene
@@ -137,9 +168,11 @@ export class PuzzleRenderer {
         x: piece.solved.x + frame.anchorX,
         y: piece.solved.y + frame.anchorY,
       });
+      pieceBbox.set(piece.id, piece.bbox);
     }
     this.pieceTextures = pieceTextures;
     this.pieceLocalPos = pieceLocalPos;
+    this.pieceBbox = pieceBbox;
 
     // Existing group containers reference stale/absent textures if this is a
     // reload - simplest safe path is to drop them; sync() rebuilds on the
@@ -201,8 +234,17 @@ export class PuzzleRenderer {
    * player as local: its container snaps straight to the target offset
    * every call (drag must feel immediate). Every other Group's container
    * eases toward its target offset over `REMOTE_LERP_MS` (see `tick`).
+   *
+   * `players`, when given, drives a "held by" badge on any Group currently
+   * held by someone other than `localPlayerId`: a name pill, tinted with
+   * that player's identity color, anchored at the Group's corner. Omitted
+   * (or a lookup miss) simply shows no badge - never blocks the sync.
    */
-  sync(state: GameState, localPlayerId: PlayerId | null = null): void {
+  sync(
+    state: GameState,
+    localPlayerId: PlayerId | null = null,
+    players?: ReadonlyMap<PlayerId, Player>,
+  ): void {
     const seen = new Set<GroupId>();
 
     for (const group of Object.values(state.groups)) {
@@ -217,6 +259,8 @@ export class PuzzleRenderer {
           target: group.offset,
           lerp: false,
           initialized: false,
+          localBbox: undefined,
+          badge: undefined,
         };
         this.groupEntries.set(group.id, entry);
       }
@@ -228,6 +272,8 @@ export class PuzzleRenderer {
         entry.pieceIds.add(pieceId);
         const sprite = this.createPieceSprite(pieceId);
         if (sprite) entry.container.addChild(sprite);
+        const bbox = this.pieceBbox.get(pieceId);
+        if (bbox) entry.localBbox = entry.localBbox ? unionRect(entry.localBbox, bbox) : bbox;
       }
 
       const isLocal = localPlayerId != null && state.heldBy[group.id] === localPlayerId;
@@ -240,6 +286,15 @@ export class PuzzleRenderer {
         entry.container.position.set(group.offset.x, group.offset.y);
       }
       entry.initialized = true;
+
+      const holderId = state.heldBy[group.id];
+      const holder = holderId && holderId !== localPlayerId ? players?.get(holderId) : undefined;
+      if (holder && entry.localBbox) {
+        this.syncBadge(entry, holder);
+      } else if (entry.badge) {
+        entry.badge.root.destroy({ children: true });
+        entry.badge = undefined;
+      }
     }
 
     for (const [id, entry] of this.groupEntries) {
@@ -247,6 +302,37 @@ export class PuzzleRenderer {
       entry.container.destroy({ children: true });
       this.groupEntries.delete(id);
     }
+  }
+
+  /** Creates/updates a Group's "held by" name pill, anchored above its bbox's top-left corner. */
+  private syncBadge(entry: GroupEntry, holder: Player): void {
+    if (!entry.badge) {
+      const root = new Container();
+      root.eventMode = "none";
+      const bg = new Graphics();
+      const label = new Text({ text: "", style: { fontSize: 11, fill: 0xffffff, fontFamily: "sans-serif" } });
+      root.addChild(bg, label);
+      entry.container.addChild(root); // added last - draws on top of the Group's Sprites
+      entry.badge = { root, bg, label, holderId: holder.id, color: "" };
+    }
+    const badge = entry.badge;
+    const changed = badge.label.text !== holder.name || badge.color !== holder.color;
+    badge.holderId = holder.id;
+
+    if (changed) {
+      badge.label.text = holder.name;
+      badge.color = holder.color;
+      const paddingX = 6;
+      const paddingY = 3;
+      const w = badge.label.width + paddingX * 2;
+      const h = badge.label.height + paddingY * 2;
+      badge.bg.clear();
+      badge.bg.roundRect(0, 0, w, h, 4).fill({ color: hexToNumber(holder.color) });
+      badge.label.position.set(paddingX, paddingY);
+    }
+
+    const bbox = entry.localBbox;
+    if (bbox) badge.root.position.set(bbox.x, bbox.y - badge.bg.height - 4);
   }
 
   private createPieceSprite(pieceId: PieceId): Sprite | null {

@@ -3,7 +3,6 @@ import type { GameState, Group, Player } from "../types";
 import {
   dropStale,
   isCompleteMessage,
-  isCursorMessage,
   isDropMessage,
   isFullStateMessage,
   isGrabDeniedMessage,
@@ -65,7 +64,6 @@ const validMessages: ProtocolMessage[] = [
     nextGroupId: 5,
     seq: 3,
   },
-  { type: "CURSOR", seq: 7, playerId: "p1", point: { x: 1, y: 2 } },
   { type: "PLAYER_LIST", players: [player], seq: 4 },
   { type: "COMPLETE", seq: 8 },
   { type: "ROOM_FULL" },
@@ -86,7 +84,6 @@ const guardsByType: Record<
   MOVE: isMoveMessage,
   DROP: isDropMessage,
   SNAP: isSnapMessage,
-  CURSOR: isCursorMessage,
   PLAYER_LIST: isPlayerListMessage,
   COMPLETE: isCompleteMessage,
   ROOM_FULL: isRoomFullMessage,
@@ -204,7 +201,7 @@ describe("parseMessage", () => {
 });
 
 describe("dropStale", () => {
-  const base = { type: "CURSOR" as const, playerId: "p1", point: { x: 0, y: 0 } };
+  const base = { type: "MOVE" as const, groupId: 1, playerId: "p1", offset: { x: 0, y: 0 } };
 
   it("drops a seq equal to lastSeq (duplicate)", () => {
     expect(dropStale(5, { ...base, seq: 5 })).toBe(true);

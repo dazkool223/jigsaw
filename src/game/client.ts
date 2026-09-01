@@ -1,8 +1,8 @@
 /**
  * The Guest-side mirror. Applies the Host's authoritative state, supports
  * optimistic local dragging (apply locally immediately; reconcile once the
- * Host's authoritative echo/snap arrives), tracks other players' live cursors,
- * and pulls a resync when it notices a sequence gap on the control channel.
+ * Host's authoritative echo/snap arrives), and pulls a resync when it
+ * notices a sequence gap on the control channel.
  *
  * Talks over a Transport (see ../types.ts) using the canonical wire shapes
  * from `../net/protocol` - see that module's "SEQUENCING" note, which this
@@ -31,7 +31,7 @@ export type ClientOptions = {
   /**
    * This Guest's own PlayerId. Required up front (rather than learned from
    * the Host's WELCOME, as in the old local protocol): protocol.ts's JOIN,
-   * GRAB, DROP, MOVE, CURSOR and STATE_REQUEST all carry the sender's own
+   * GRAB, DROP, MOVE and STATE_REQUEST all carry the sender's own
    * `playerId` in the payload itself, so the Client needs it before it can
    * send anything. Per CONTEXT.md, Player identity is already a per-device
    * id persisted in localStorage before a Room is ever joined, so callers
@@ -47,7 +47,6 @@ export class Client {
   private state: GameState = EMPTY_STATE;
   private playerId: PlayerId;
   private players = new Map<PlayerId, Player>();
-  private readonly cursors = new Map<PlayerId, Point>();
   private ready = false;
   private joinDeniedReason: "room-full" | undefined;
   private lastGrabDenied: { readonly groupId: GroupId; readonly reason: "held" | "not-found" } | undefined;
@@ -81,10 +80,6 @@ export class Client {
 
   getPlayers(): readonly Player[] {
     return [...this.players.values()];
-  }
-
-  getCursors(): ReadonlyMap<PlayerId, Point> {
-    return this.cursors;
   }
 
   isReady(): boolean {
@@ -138,15 +133,6 @@ export class Client {
     this.state = moveGroup(this.state, groupId, offset);
     this.notify();
     this.sendControl({ type: "DROP", groupId, playerId: this.playerId, offset });
-  }
-
-  sendCursor(point: Point): void {
-    this.transport.send("stream", BROADCAST, {
-      type: "CURSOR",
-      seq: this.nextOutStreamSeq(),
-      playerId: this.playerId,
-      point,
-    });
   }
 
   requestResync(): void {
@@ -219,12 +205,6 @@ export class Client {
       case "COMPLETE":
         this.checkSeqGap(msg.seq);
         this.completed = true;
-        break;
-
-      case "CURSOR":
-        if (this.acceptStream(msg) && msg.playerId !== this.playerId) {
-          this.cursors.set(msg.playerId, msg.point);
-        }
         break;
 
       default:

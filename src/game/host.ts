@@ -79,10 +79,8 @@ export class Host {
   private seq = 0;
   /** Own outbound counter for everything THIS Host originates on `stream` (local play only - relayed Guest messages keep their own seq). */
   private outStreamSeq = -1;
-  /** Per-sender staleness tracking for the unreliable `stream` channel (MOVE, CURSOR). */
+  /** Per-sender staleness tracking for the unreliable `stream` channel (MOVE). */
   private readonly lastStreamSeq = new Map<PlayerId, number>();
-  /** Latest known cursor per Guest, for the Host's OWN screen - see getCursors(). */
-  private readonly cursors = new Map<PlayerId, Point>();
   private resyncTimer: ReturnType<typeof setInterval> | undefined;
   private readonly unsubscribers: Array<() => void> = [];
   private readonly hostPlayerId: PlayerId;
@@ -116,11 +114,6 @@ export class Host {
 
   getPlayerId(): PlayerId {
     return this.hostPlayerId;
-  }
-
-  /** Other players' latest known cursor positions, for the Host's own screen. Never includes the Host itself. */
-  getCursors(): ReadonlyMap<PlayerId, Point> {
-    return this.cursors;
   }
 
   /** Subscribe to "something changed" notifications. Mirrors Client.onChange. Returns an unsubscribe fn. */
@@ -167,15 +160,6 @@ export class Host {
     this.notify();
   }
 
-  sendCursor(point: Point): void {
-    this.transport.send("stream", BROADCAST, {
-      type: "CURSOR",
-      seq: this.nextOutStreamSeq(),
-      playerId: this.hostPlayerId,
-      point,
-    });
-  }
-
   // ── Inbound ──
 
   private handleMessage(from: PlayerId, raw: unknown): void {
@@ -203,17 +187,6 @@ export class Host {
         break;
       case "DROP":
         this.handleDrop(from, msg.groupId, msg.offset);
-        break;
-      case "CURSOR":
-        if (this.acceptStream(from, msg)) {
-          // Recorded for the Host's OWN screen (see getCursors()) as well as
-          // relayed - the Host is a player too and never sees its own CURSOR
-          // messages echoed back to apply them the way a Guest's Client does.
-          this.cursors.set(from, msg.point);
-          // Best-effort relay, unmodified (including the original seq) -
-          // other Guests gap-check it themselves per-sender.
-          this.transport.send("stream", BROADCAST, msg);
-        }
         break;
       case "STATE_REQUEST":
         this.sendFullState(from);
@@ -280,7 +253,6 @@ export class Host {
         this.state = releaseGroup(this.state, Number(groupIdKey), id);
       }
     }
-    this.cursors.delete(id);
     if (this.players.delete(id)) {
       this.broadcastControl({ type: "PLAYER_LIST", players: this.getPlayers(), seq: this.nextSeq() });
     }

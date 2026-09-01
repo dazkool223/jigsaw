@@ -7,7 +7,7 @@
  *   - `control` (reliable/ordered): JOIN, WELCOME, FULL_STATE, STATE_REQUEST,
  *     GRAB, GRAB_GRANTED, GRAB_DENIED, DROP, SNAP, PLAYER_LIST, COMPLETE,
  *     ROOM_FULL, HOST_CHANGED.
- *   - `stream` (unreliable/unordered, ~STREAM_HZ): MOVE, CURSOR. Both carry a
+ *   - `stream` (unreliable/unordered, ~STREAM_HZ): MOVE. Carries a
  *     monotonic `seq` so a receiver can drop anything older than the last
  *     seq it accepted - see `dropStale`.
  *
@@ -32,7 +32,7 @@
  *     else, since they didn't see that unicast reply go by.
  *   - GRAB_DENIED and ROOM_FULL carry no `seq` at all: they're terminal,
  *     unicast, one-off replies outside the ordered stream.
- *   - `stream`-channel messages (MOVE, CURSOR) carry `seq` for an unrelated
+ *   - `stream`-channel messages (MOVE) carry `seq` for an unrelated
  *     reason: not gap-detection but staleness-dropping (`dropStale`), since
  *     that channel is unreliable/unordered and drops there are normal, not
  *     bugs. Each sender keeps one counter for everything it sends on
@@ -172,14 +172,6 @@ export type SnapMessage = {
   readonly seq: number;
 };
 
-/** Any player -> all, on `stream`. Live cursor position. */
-export type CursorMessage = {
-  readonly type: "CURSOR";
-  readonly seq: number;
-  readonly playerId: PlayerId;
-  readonly point: Point;
-};
-
 /**
  * Host -> all. Roster snapshot, sent on join/leave/rename. Deliberately the
  * bulk roster rather than separate PLAYER_JOINED/PLAYER_LEFT events: the
@@ -232,14 +224,13 @@ export type ProtocolMessage =
   | MoveMessage
   | DropMessage
   | SnapMessage
-  | CursorMessage
   | PlayerListMessage
   | CompleteMessage
   | RoomFullMessage
   | HostChangedMessage;
 
 /** Messages sent on the unreliable `stream` channel - the ones that carry `seq`. */
-export type StreamMessage = MoveMessage | CursorMessage;
+export type StreamMessage = MoveMessage;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Low-level value guards
@@ -442,16 +433,6 @@ export function isSnapMessage(m: unknown): m is SnapMessage {
   );
 }
 
-export function isCursorMessage(m: unknown): m is CursorMessage {
-  return (
-    isRecord(m) &&
-    m.type === "CURSOR" &&
-    isFiniteNumber(m.seq) &&
-    isPlayerId(m.playerId) &&
-    isPoint(m.point)
-  );
-}
-
 export function isPlayerListMessage(m: unknown): m is PlayerListMessage {
   return (
     isRecord(m) &&
@@ -479,7 +460,7 @@ export function isHostChangedMessage(m: unknown): m is HostChangedMessage {
 }
 
 export function isStreamMessage(m: unknown): m is StreamMessage {
-  return isMoveMessage(m) || isCursorMessage(m);
+  return isMoveMessage(m);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -499,7 +480,6 @@ const GUARDS_BY_TYPE: Readonly<
   MOVE: isMoveMessage,
   DROP: isDropMessage,
   SNAP: isSnapMessage,
-  CURSOR: isCursorMessage,
   PLAYER_LIST: isPlayerListMessage,
   COMPLETE: isCompleteMessage,
   ROOM_FULL: isRoomFullMessage,
