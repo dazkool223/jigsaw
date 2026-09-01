@@ -141,12 +141,45 @@ export const PLAYER_NAME_MAX_LENGTH = 24;
 /** Cursor / mid-drag update rate. Higher = smoother remote motion, more bandwidth. */
 export const STREAM_HZ = 25;
 
-/** How long to wait for ICE before showing the "couldn't connect" error. */
-export const CONNECT_TIMEOUT_MS = 15_000;
+/**
+ * Overall budget for a Guest to go from "offer sent" to "control channel
+ * open". Covers signaling round-trips, ICE gathering, connectivity checks,
+ * a possible TURN relay allocation and the DTLS handshake.
+ *
+ * This was 15s, which is tight for that whole chain over cellular - a
+ * connection that would have succeeded got killed partway through. Fail-fast
+ * for the case actually worth failing fast on (the Host never answering) now
+ * lives in ANSWER_TIMEOUT_MS below, so this one can afford to be patient.
+ */
+export const CONNECT_TIMEOUT_MS = 30_000;
+
+/**
+ * How long a Guest waits for the Host's SDP answer before giving up. Purely a
+ * signaling round-trip through Supabase Realtime, so it is quick when it works
+ * at all; exceeding it means nobody is hosting (a stale Realtime presence
+ * entry left by a slept laptop or a backgrounded mobile tab), not that the
+ * network is bad. Kept well under CONNECT_TIMEOUT_MS so that diagnosis wins.
+ */
+export const ANSWER_TIMEOUT_MS = 8_000;
+
+/** How long to wait on the TURN credentials endpoint before falling back to STUN only. */
+export const ICE_FETCH_TIMEOUT_MS = 5_000;
+
+/**
+ * Re-fetch TURN credentials this long before they expire. Without a margin, a
+ * connection started just under the wire can have its relay allocation refused
+ * mid-negotiation.
+ */
+export const ICE_CREDENTIAL_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 /** Host's periodic full-state broadcast, the drift safety net. */
 export const RESYNC_INTERVAL_MS = 30_000;
 
+/**
+ * STUN alone only solves the easy half of NAT traversal. TURN is configured at
+ * runtime from environment variables rather than here, because its credentials
+ * must be short-lived - see net/iceServers.ts.
+ */
 export const STUN_SERVERS = ["stun:stun.l.google.com:19302"] as const;
 
 // ── Persistence ──
