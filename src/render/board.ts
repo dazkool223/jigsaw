@@ -1,6 +1,6 @@
 /**
  * Composition root: wires the pure `render/` modules (PuzzleRenderer,
- * Interactions, CursorLayer, viewport) to a live `PlayerController` (Host or
+ * Interactions, viewport) to a live `PlayerController` (Host or
  * Client - see ../types.ts) and a DOM container. This is the seam app.tsx's
  * `handleBoardMount` TODO pointed at: nowhere else connects rendering to
  * game state, so this is the only module in `render/` allowed to import from
@@ -14,10 +14,10 @@
 
 import { PuzzleRenderer } from "./renderer";
 import { Interactions } from "./interactions";
-import { CursorLayer, type CursorState } from "./cursors";
 import { fitToContent } from "./viewport";
 import { bakeAtlases } from "../puzzle/textures";
 import { groupOfPiece } from "../game/state";
+import { playAreaBounds } from "../puzzle/layout";
 import type { PlayerController, Puzzle } from "../types";
 
 export type MountBoardOptions = {
@@ -73,8 +73,8 @@ export function mountBoard(opts: MountBoardOptions): () => void {
     );
     renderer.setViewport(viewport);
 
-    const cursorLayer = new CursorLayer(renderer.app, renderer.worldRoot);
     const localPlayerId = controller.getPlayerId() ?? null;
+    const bounds = playAreaBounds(puzzle.grid);
 
     let ghostOn = false;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -91,6 +91,7 @@ export function mountBoard(opts: MountBoardOptions): () => void {
       getGroupOfPiece: (pieceId) => groupOfPiece(controller.getState(), pieceId),
       getGroupZ: (groupId) => controller.getState().groups[groupId]?.z ?? 0,
       getGroupOffset: (groupId) => controller.getState().groups[groupId]?.offset,
+      bounds,
       callbacks: {
         onGrab: (groupId) => controller.grab(groupId),
         onMove: (groupId, offset) => controller.move(groupId, offset),
@@ -99,21 +100,12 @@ export function mountBoard(opts: MountBoardOptions): () => void {
           viewport = v;
           renderer.setViewport(v);
         },
-        onCursorMove: (world) => controller.sendCursor(world),
       },
     });
 
     const renderState = () => {
-      renderer.sync(controller.getState(), localPlayerId);
       const players = new Map(controller.getPlayers().map((p) => [p.id, p]));
-      const cursorStates: CursorState[] = [];
-      for (const [playerId, world] of controller.getCursors()) {
-        if (playerId === localPlayerId) continue;
-        const player = players.get(playerId);
-        if (!player) continue; // seen a cursor before the roster caught up - skip this tick, next PLAYER_LIST fixes it
-        cursorStates.push({ playerId, name: player.name, color: player.color, world });
-      }
-      cursorLayer.sync(cursorStates);
+      renderer.sync(controller.getState(), localPlayerId, players);
     };
     renderState();
     const unsubscribe = controller.onChange(renderState);
@@ -122,7 +114,6 @@ export function mountBoard(opts: MountBoardOptions): () => void {
       window.removeEventListener("keydown", onKeyDown);
       unsubscribe();
       interactions.destroy();
-      cursorLayer.destroy();
       renderer.destroy();
     };
   })();

@@ -4,7 +4,7 @@
  * derives the same scatter from the same seed.
  */
 
-import type { Grid, Point } from "../types";
+import type { Grid, Point, Rect } from "../types";
 import { SCATTER_MARGIN } from "../config";
 import { keyedRandom } from "./rng";
 
@@ -28,24 +28,42 @@ export function fitGrid(imageW: number, imageH: number, targetPieces: number): G
 }
 
 /**
+ * The playable area: the image rect expanded on every side by
+ * `marginFraction` (a fraction of image size). This is the one definition of
+ * "where pieces live" - `scatterOffsets` below spreads the initial pile
+ * across exactly this rect, and `render/board.ts` clamps dragging and
+ * panning to it, so a piece can never end up somewhere the scatter itself
+ * would never have put it.
+ */
+export function playAreaBounds(grid: Grid, marginFraction: number = SCATTER_MARGIN): Rect {
+  const marginX = grid.imageW * marginFraction;
+  const marginY = grid.imageH * marginFraction;
+  return {
+    x: -marginX,
+    y: -marginY,
+    w: grid.imageW + marginX * 2,
+    h: grid.imageH + marginY * 2,
+  };
+}
+
+/**
  * Deterministic initial scatter, one offset per Piece in row-major order
  * (id = row*cols+col - the same ordering `geometry.ts#buildPuzzle` assigns
  * Piece ids in), so `scatterOffsets(grid, seed)[piece.id]` is a Group
  * `offset` ready to apply directly: `piece.solved + offset` places the Piece
  * scattered instead of solved.
  *
- * Pieces are spread uniformly over the image area expanded on every side by
- * SCATTER_MARGIN (a fraction of image size), independent of solved position,
- * so the scatter looks like a random pile rather than a jittered grid.
+ * Pieces are spread uniformly over `playAreaBounds(grid)`, independent of
+ * solved position, so the scatter looks like a random pile rather than a
+ * jittered grid.
  */
 export function scatterOffsets(grid: Grid, seed: number): Point[] {
-  const { rows, cols, cellW, cellH, imageW, imageH } = grid;
-  const marginX = imageW * SCATTER_MARGIN;
-  const marginY = imageH * SCATTER_MARGIN;
-  const minX = -marginX;
-  const maxX = imageW + marginX;
-  const minY = -marginY;
-  const maxY = imageH + marginY;
+  const { rows, cols, cellW, cellH } = grid;
+  const bounds = playAreaBounds(grid);
+  const minX = bounds.x;
+  const maxX = bounds.x + bounds.w;
+  const minY = bounds.y;
+  const maxY = bounds.y + bounds.h;
 
   const offsets: Point[] = [];
   for (let row = 0; row < rows; row++) {

@@ -16,9 +16,9 @@
  * no per-drag path rebuilding.
  */
 
-import type { GroupId, Piece, PieceId, Point } from "../types";
+import type { GroupId, Piece, PieceId, Point, Rect } from "../types";
 import { outlineToPath2D } from "../puzzle/textures";
-import { pan, screenToWorld, zoomToCursor, type Viewport } from "./viewport";
+import { clampAxisToBounds, clampViewport, pan, screenToWorld, zoomToCursor, type Viewport } from "./viewport";
 
 export type InteractionCallbacks = {
   /** A Piece under the pointer resolved to `groupId` and the drag is starting. */
@@ -29,8 +29,6 @@ export type InteractionCallbacks = {
   readonly onDrop?: (groupId: GroupId, offset: Point) => void;
   /** Fired whenever pan/zoom/pinch changes the Viewport. */
   readonly onViewportChange?: (viewport: Viewport) => void;
-  /** Fired on pointer movement over the board, in world space - for broadcasting the local cursor. */
-  readonly onCursorMove?: (world: Point) => void;
 };
 
 export type InteractionsOptions = {
@@ -44,13 +42,37 @@ export type InteractionsOptions = {
   readonly callbacks: InteractionCallbacks;
   /** Wheel zoom step per notch; defaults to 1.1 (10% per click). */
   readonly wheelZoomStep?: number;
+  /**
+   * World-space rect that dragging a Group and panning/zooming the camera
+   * are both confined to (see `puzzle/layout.ts#playAreaBounds`) - "restrict
+   * canvas with certain space so pieces are not gone outside the window".
+   */
+  readonly bounds: Rect;
 };
+
+function unionRect(a: Rect, b: Rect): Rect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    w: Math.max(a.x + a.w, b.x + b.w) - x,
+    h: Math.max(a.y + a.h, b.y + b.h) - y,
+  };
+}
 
 type PointerRecord = { readonly id: number; x: number; y: number };
 
 type Mode =
   | { readonly kind: "idle" }
-  | { readonly kind: "drag-group"; readonly groupId: GroupId; readonly startOffset: Point; readonly startWorld: Point }
+  | {
+      readonly kind: "drag-group";
+      readonly groupId: GroupId;
+      readonly startOffset: Point;
+      readonly startWorld: Point;
+      /** Union bbox of the Group's member Pieces, in rest space - fixed for the drag's duration. */
+      readonly groupBbox: Rect;
+    }
   | { readonly kind: "pan"; last: Point }
   | { readonly kind: "pinch"; lastDistance: number; lastMidpoint: Point };
 
@@ -156,6 +178,31 @@ export class Interactions {
     return best?.groupId ?? null;
   }
 
+  /** Union bbox (rest space) of every Piece currently in `groupId`. */
+  private computeGroupBbox(groupId: GroupId): Rect {
+    let box: Rect | undefined;
+    for (const piece of this.opts.getPieces()) {
+      if (this.opts.getGroupOfPiece(piece.id) !== groupId) continue;
+      box = box ? unionRect(box, piece.bbox) : piece.bbox;
+    }
+    return box ?? { x: 0, y: 0, w: 0, h: 0 };
+  }
+
+  /** Keeps a dragged Group's bbox (translated by `offset`) inside `opts.bounds`. */
+  private clampGroupOffset(offset: Point, groupBbox: Rect): Point {
+    const bounds = this.opts.bounds;
+    return {
+      x: clampAxisToBounds(groupBbox.x + offset.x, groupBbox.w, bounds.x, bounds.w) - groupBbox.x,
+      y: clampAxisToBounds(groupBbox.y + offset.y, groupBbox.h, bounds.y, bounds.h) - groupBbox.y,
+    };
+  }
+
+  /** Keeps the camera from panning/zooming past `opts.bounds`. */
+  private clampCamera(viewport: Viewport): Viewport {
+    const rect = this.opts.element.getBoundingClientRect();
+    return clampViewport(viewport, this.opts.bounds, rect.width, rect.height);
+  }
+
   // ── Screen helpers ──────────────────────────────────────────────────
 
   private toLocalScreen(e: PointerEvent | WheelEvent): Point {
@@ -187,7 +234,8 @@ export class Interactions {
       const groupId = this.hitTestGroupAt(world);
       if (groupId !== null) {
         const startOffset = this.opts.getGroupOffset(groupId) ?? { x: 0, y: 0 };
-        this.mode = { kind: "drag-group", groupId, startOffset, startWorld: world };
+        const groupBbox = this.computeGroupBbox(groupId);
+        this.mode = { kind: "drag-group", groupId, startOffset, startWorld: world, groupBbox };
         this.opts.callbacks.onGrab?.(groupId, world);
         return;
       }
@@ -213,7 +261,8 @@ export class Interactions {
       const world = screenToWorld(this.viewport, screen);
       const dx = world.x - this.mode.startWorld.x;
       const dy = world.y - this.mode.startWorld.y;
-      const offset = { x: this.mode.startOffset.x + dx, y: this.mode.startOffset.y + dy };
+      const rawOffset = { x: this.mode.startOffset.x + dx, y: this.mode.startOffset.y + dy };
+      const offset = this.clampGroupOffset(rawOffset, this.mode.groupBbox);
       this.opts.callbacks.onMove?.(this.mode.groupId, offset);
       return;
     }
@@ -221,13 +270,10 @@ export class Interactions {
     if (this.mode.kind === "pan") {
       const delta = { x: screen.x - this.mode.last.x, y: screen.y - this.mode.last.y };
       this.mode = { kind: "pan", last: screen };
-      this.viewport = pan(this.viewport, delta);
+      this.viewport = this.clampCamera(pan(this.viewport, delta));
       this.emitViewport();
       return;
     }
-
-    // idle: just report the cursor position for remote broadcast.
-    this.opts.callbacks.onCursorMove?.(screenToWorld(this.viewport, screen));
   }
 
   private handlePointerUp(e: PointerEvent): void {
@@ -238,7 +284,8 @@ export class Interactions {
       const world = this.lastKnownWorld(e);
       const dx = world.x - this.mode.startWorld.x;
       const dy = world.y - this.mode.startWorld.y;
-      const offset = { x: this.mode.startOffset.x + dx, y: this.mode.startOffset.y + dy };
+      const rawOffset = { x: this.mode.startOffset.x + dx, y: this.mode.startOffset.y + dy };
+      const offset = this.clampGroupOffset(rawOffset, this.mode.groupBbox);
       this.opts.callbacks.onDrop?.(this.mode.groupId, offset);
     }
 
@@ -281,6 +328,7 @@ export class Interactions {
       this.viewport = zoomToCursor(this.viewport, midpoint, deltaScale);
     }
 
+    this.viewport = this.clampCamera(this.viewport);
     this.mode = { kind: "pinch", lastDistance: distance, lastMidpoint: midpoint };
     this.emitViewport();
   }
@@ -292,7 +340,7 @@ export class Interactions {
     const screen = this.toLocalScreen(e);
     const step = this.opts.wheelZoomStep ?? 1.1;
     const deltaScale = e.deltaY < 0 ? step : 1 / step;
-    this.viewport = zoomToCursor(this.viewport, screen, deltaScale);
+    this.viewport = this.clampCamera(zoomToCursor(this.viewport, screen, deltaScale));
     this.emitViewport();
   }
 

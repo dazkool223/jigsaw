@@ -113,7 +113,7 @@ function expectRoundTrips(msg: unknown): void {
 }
 
 describe("Host <-> Client wire traffic all round-trips through parseMessage", () => {
-  it("every message type sent during a full session (join, grab race, drag, merge-to-complete, cursor, resync, leave) is well-formed", async () => {
+  it("every message type sent during a full session (join, grab race, drag, merge-to-complete, resync, leave) is well-formed", async () => {
     const puzzle = makePuzzle();
     const hub = new LoopbackHub();
     const seenTypes = new Set<string>();
@@ -157,7 +157,6 @@ describe("Host <-> Client wire traffic all round-trips through parseMessage", ()
 
     // Mid-drag (MOVE), then drop back at the Lattice position, cascading a
     // full Merge (SNAP) and Completion (COMPLETE) in one drop.
-    alice.sendCursor({ x: 12, y: 34 }); // CURSOR
     alice.move(0, { x: 5, y: -5 }); // MOVE
     alice.drop(0, { x: 0, y: 0 }); // DROP -> SNAP (+ COMPLETE, since it's the whole 2x2)
     await waitUntil(() => Object.keys(host.getState().groups).length === 1);
@@ -185,7 +184,6 @@ describe("Host <-> Client wire traffic all round-trips through parseMessage", ()
       "GRAB_DENIED",
       "STATE_REQUEST",
       "FULL_STATE",
-      "CURSOR",
       "MOVE",
       "DROP",
       "SNAP",

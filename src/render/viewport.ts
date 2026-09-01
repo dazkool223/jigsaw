@@ -15,6 +15,20 @@
 import type { Point, Rect } from "../types";
 import { ZOOM_MAX, ZOOM_MIN } from "../config";
 
+/**
+ * Clamps a `size`-wide/tall box positioned at `min` so it stays fully inside
+ * `[boundMin, boundMin + boundSize)`. If the box is bigger than the bounds on
+ * this axis, centers it instead of picking an edge - avoids the box
+ * flip-flopping between two invalid clamp targets. Shared by `clampViewport`
+ * (the box is the visible screen rect) and `interactions.ts`'s drag clamp
+ * (the box is a Group's bounding box) - both are the same "keep this rect
+ * inside that rect" problem.
+ */
+export function clampAxisToBounds(min: number, size: number, boundMin: number, boundSize: number): number {
+  if (size >= boundSize) return boundMin + (boundSize - size) / 2;
+  return Math.min(Math.max(min, boundMin), boundMin + boundSize - size);
+}
+
 export type Viewport = {
   readonly origin: Point;
   readonly scale: number;
@@ -77,6 +91,26 @@ export function zoomToCursor(viewport: Viewport, screenPoint: Point, deltaScale:
   };
 
   return { origin: newOrigin, scale: newScale };
+}
+
+/**
+ * Clamps `viewport` so the visible world-space rect (`screenW` x `screenH`
+ * CSS pixels, at the viewport's current scale) never leaves `bounds` -
+ * "restrict the canvas to a certain space" so panning/zooming can't wander
+ * into empty space past the play area. Centers on any axis where the visible
+ * rect is bigger than `bounds` (e.g. zoomed all the way out, or a narrow
+ * mobile screen in portrait), rather than pinning to one edge.
+ */
+export function clampViewport(viewport: Viewport, bounds: Rect, screenW: number, screenH: number): Viewport {
+  const visibleW = screenW / viewport.scale;
+  const visibleH = screenH / viewport.scale;
+  return {
+    ...viewport,
+    origin: {
+      x: clampAxisToBounds(viewport.origin.x, visibleW, bounds.x, bounds.w),
+      y: clampAxisToBounds(viewport.origin.y, visibleH, bounds.y, bounds.h),
+    },
+  };
 }
 
 /**
