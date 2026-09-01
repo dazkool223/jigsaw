@@ -148,6 +148,20 @@ describe("resolveIceServers with a credentials endpoint", () => {
     expect(hasRelay(await resolveIceServers())).toBe(false);
   });
 
+  it("sends the Supabase publishable key as the apikey header - the gateway 401s without it", async () => {
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
+    const fetchMock = stubFetch({
+      iceServers: [{ urls: ["turn:relay.example:3478"], username: "u", credential: "c" }],
+    });
+
+    await resolveIceServers();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.test/turn",
+      expect.objectContaining({ headers: { apikey: "sb_publishable_test" } }),
+    );
+  });
+
   it("degrades to STUN when the request throws, and never rejects", async () => {
     vi.stubGlobal(
       "fetch",
